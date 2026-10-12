@@ -1,0 +1,22 @@
+{
+  "note": "Homepage design changelog that drives the REVISIONS table. Oldest first. Fields: rev, label (shown as DESCRIPTION), eng (initials), date (MM/DD/YYYY), desc, changes. Add a rev by appending an entry, then run: python3 src/build.py",
+  "revs": [
+    {
+      "rev": "01",
+      "label": "PRE-RELEASE",
+      "eng": "BSW",
+      "date": "10/11/2026",
+      "desc": "Print set homepage, first issue",
+      "changes": [
+        "Homepage drawn as a print set of six sheets in the style of a SolidWorks drawing: zone border, revisions table, full title block, dimension lines and a drafting typeface.",
+        "Cover sheet shows an isometric shop with a bill of materials of six lines, each linked to a balloon and a zone in the drawing.",
+        "Sheets flip one at a time, peeling from the top right corner like a clipped print set.",
+        "Quote field on the Instant quotes sheet. Sample data, shops anonymized.",
+        "Provider names, provider counts and route framing removed. Copy speaks to every machine shop.",
+        "Title block fields give quick facts on hover, focus or tap, and open details on click.",
+        "Scannable QR code to overdrafter.com in the bottom left corner, generated locally.",
+        "Revisions table added. This entry is the first."
+      ]
+    }
+  ]
+}

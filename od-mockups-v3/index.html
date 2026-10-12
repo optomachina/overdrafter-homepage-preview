@@ -1,0 +1,725 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Overdrafter. Every machine shop. One upload.</title>
+<meta name="description" content="Drop in your part and Overdrafter quotes it across the instant quote shops, then finds the real shops behind them.">
+<script>
+/* Saved theme applies before first paint. Dark is the default. */
+(function(){try{var t=localStorage.getItem('od-theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}})();
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Questrial&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Overdrafter homepage v3. A print set in the style of a SolidWorks drawing sheet.
+   Magnetic sheets: input flips exactly one sheet, peeling from the top right corner.
+   Polish: better-ui, emil-design-eng. Discipline: design-taste-frontend. */
+:root,[data-theme=dark]{
+  --bg:#141C22;--surface:#1B252D;--surface-2:#24313B;--text:#EDE8DE;--soft:#CFD6DB;--muted:#8E9AA3;
+  --hairline:#3E4F5B;--rule:#5B6C78;--frame:#B7C1C8;--accent:#FF7A1A;--accent-fill:#FF7A1A;--accent-hover:#FF8F3D;--on-accent:#141C22;
+  --dot:#1B252D;--glass:rgba(255,122,26,.12);--shadow:rgba(0,0,0,.55);color-scheme:dark}
+[data-theme=light]{
+  --bg:#F7F6F2;--surface:#FFFFFF;--surface-2:#ECE8DF;--text:#1C1B19;--soft:#33312C;--muted:#5F5A51;
+  --hairline:#C4BBAA;--rule:#55524C;--frame:#1C1B19;--accent:#C2410C;--accent-fill:#FF7A1A;--accent-hover:#FF8F3D;--on-accent:#1C1B19;
+  --dot:#FFFFFF;--glass:rgba(194,65,12,.10);--shadow:rgba(28,27,25,.28);color-scheme:light}
+:root{--draft:"Questrial","Century Gothic","Avant Garde",sans-serif;--body:"IBM Plex Sans",sans-serif;--mono:"IBM Plex Mono",ui-monospace,monospace;
+  --ease-out:cubic-bezier(0.23,1,0.32,1);--bar:52px;--z:18px;--lw:1.5px}
+*{box-sizing:border-box;margin:0;padding:0}
+html:not(.flat),html:not(.flat) body{height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--text);font:400 16px/1.55 var(--body);-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
+a{color:inherit}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+[tabindex="-1"]:focus{outline:none}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.skip{position:fixed;left:-999px;top:8px;background:var(--accent-fill);color:var(--on-accent);padding:8px 12px;font:12px var(--draft);z-index:100}
+.skip:focus{left:8px}
+.label{font:400 11px/1.35 var(--draft);letter-spacing:.14em;color:var(--muted)}
+.ph{font:400 10px/1.3 var(--draft);letter-spacing:.12em;text-transform:uppercase;color:var(--accent);border:1px dashed var(--accent);padding:3px 7px;display:inline-block}
+
+/* Buttons: press scale .96, 150ms ease out (better-ui). Named transition properties only. */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;font:400 12.5px/1 var(--draft);letter-spacing:.16em;text-transform:uppercase;text-decoration:none;padding:14px 18px;min-height:44px;border:1px solid var(--frame);background:transparent;color:var(--text);cursor:pointer;white-space:nowrap;
+  transition-property:scale,background-color,border-color;transition-duration:150ms;transition-timing-function:ease-out}
+.btn:not(:disabled):active{scale:.96}
+.btn.primary{background:var(--accent-fill);border-color:var(--accent-fill);color:var(--on-accent)}
+.btn.sm{padding:9px 12px;min-height:36px;font-size:11.5px}
+@media (hover:hover){.btn:hover{background:var(--surface-2)}.btn.primary:hover{background:var(--accent-hover);border-color:var(--accent-hover)}}
+.ctas{display:flex;flex-wrap:wrap;gap:10px}
+
+/* Top bar */
+.bar{position:fixed;inset:0 0 auto 0;height:var(--bar);z-index:50;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 20px;background:var(--bg);border-bottom:1px solid var(--rule)}
+.wordmark{font:400 19px/1 var(--draft);letter-spacing:.2em;text-transform:uppercase;text-decoration:none}
+.bar .actions{display:flex;gap:8px;align-items:center}
+
+/* Deck: sheets stack in place. Only the current sheet is visible and interactive (others are inert). */
+.deck{position:fixed;top:var(--bar);left:0;right:0;bottom:0;perspective:2600px;perspective-origin:100% 0}
+.sheet{position:absolute;inset:0;padding:10px 12px 12px;background:var(--bg);visibility:hidden;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;transform-origin:100% 0;backface-visibility:hidden}
+.sheet.cur{visibility:visible;z-index:2}
+.sheet.under{visibility:visible;z-index:1}
+.sheet.over{visibility:visible;z-index:3}
+.sheet.peel{box-shadow:-8px 12px 24px var(--shadow);outline:1px solid var(--frame);outline-offset:-1px}
+.sheet.peel::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:20;background:linear-gradient(45deg,var(--shadow) 0,transparent 24px)}
+html.flat .deck{position:static;padding-top:var(--bar);perspective:none}
+html.flat .sheet{position:relative;inset:auto;visibility:visible;overflow:visible;height:calc(100svh - var(--bar));min-height:720px}
+
+/* Sheet frame: zone border, numbers across, letters down */
+.frame{min-height:100%;height:100%;display:grid;grid-template-columns:var(--z) minmax(0,1fr) var(--z);grid-template-rows:var(--z) minmax(0,1fr) var(--z);border:var(--lw) solid var(--frame);background:var(--bg)}
+.frame>:nth-child(1){grid-area:1/2/2/3}.frame>:nth-child(2){grid-area:2/1/3/2}.frame>:nth-child(3){grid-area:2/2/3/3}.frame>:nth-child(4){grid-area:2/3/3/4}.frame>:nth-child(5){grid-area:3/2/4/3}
+.zt{display:grid;grid-template-columns:repeat(6,1fr)}
+.zl{display:grid;grid-template-rows:repeat(4,1fr)}
+.zt span,.zl span{display:flex;align-items:center;justify-content:center;font:400 11px/1 var(--draft);color:var(--muted)}
+.zt span+span{border-left:1px solid var(--rule)}
+.zl span+span{border-top:1px solid var(--rule)}
+.inner{position:relative;border:var(--lw) solid var(--frame);min-height:0;overflow:hidden}
+
+/* Tables sit flush in their corners, touching the border lines */
+.tbl{border-collapse:collapse;background:var(--bg);font:400 11px/1.2 var(--draft);letter-spacing:.06em;text-transform:uppercase;color:var(--text)}
+.tbl th,.tbl td{border:1px solid var(--rule);padding:5px 10px;text-align:left;font-weight:400;white-space:nowrap}
+.tbl th{text-align:center;color:var(--soft)}
+.tbl td.c{text-align:center}
+.bom{position:absolute;top:0;left:0;z-index:4}
+.bom tr>:first-child{border-left:0}
+.bom thead tr:first-child>*{border-top:0}
+.bom-b{background:none;border:0;padding:0;margin:0;font:inherit;letter-spacing:inherit;text-transform:inherit;cursor:pointer;width:100%;text-align:left}
+.bom td{transition:background-color 120ms ease-out,color 120ms ease-out}
+.bom tr.hl td{background:var(--surface-2);color:var(--accent)}
+.revs{position:absolute;top:0;right:0;z-index:4;min-width:420px}
+.revs tr>:last-child{border-right:0}
+.revs thead tr:first-child>*{border-top:0}
+.revs td:nth-child(2){width:100%}
+.rv{background:none;border:0;font:inherit;letter-spacing:inherit;text-transform:inherit;cursor:pointer;width:100%;padding:0}
+@media (hover:hover){.rv:hover,.bom-b:hover{color:var(--accent)}}
+.qr{position:absolute;left:0;bottom:0;z-index:4;display:block;width:104px;height:104px;background:#fff;padding:6px;border-top:1px solid var(--rule);border-right:1px solid var(--rule)}
+.qr-img,.qr-img svg{display:block;width:100%;height:100%}
+.pager{position:absolute;left:120px;bottom:14px;z-index:4;display:flex;gap:8px}
+.pg{font:400 11.5px/1 var(--draft);letter-spacing:.14em;text-transform:uppercase;padding:10px 12px;min-height:40px;border:1px solid var(--frame);background:var(--bg);cursor:pointer;white-space:nowrap;transition-property:scale,background-color;transition-duration:150ms;transition-timing-function:ease-out}
+.pg:not([aria-disabled=true]):active{scale:.96}
+.pg[aria-disabled=true]{opacity:.4;cursor:default;border-color:transparent}
+@media (hover:hover){.pg:not([aria-disabled=true]):hover{background:var(--surface-2)}}
+
+/* Title block, bottom right, flush */
+.tb{position:absolute;right:0;bottom:0;z-index:5;width:min(920px,calc(100% - 400px));display:grid;grid-template-columns:.85fr .9fr 1.55fr 2.3fr;background:var(--bg);border-top:1px solid var(--rule);border-left:1px solid var(--rule);font-family:var(--draft);text-transform:uppercase}
+.tb>*+*{border-left:1px solid var(--rule)}
+.tf{position:relative;min-width:0;display:flex}
+.tfb{display:flex;flex-direction:column;justify-content:flex-start;gap:4px;width:100%;min-height:30px;text-align:left;background:none;border:0;padding:5px 8px;cursor:pointer;font-family:var(--draft);text-transform:uppercase;transition:background-color 120ms ease-out}
+@media (hover:hover){.tfb:hover{background:var(--surface)}}
+.tl{font:400 9.5px/1.15 var(--draft);letter-spacing:.1em;color:var(--muted)}
+.tv{font:400 13px/1.1 var(--draft);letter-spacing:.06em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.tv.big{font-size:17px;white-space:normal;line-height:1.15}
+.tv.mid{font-size:19px;letter-spacing:.04em}
+.tv.huge{font-size:30px;line-height:1}
+.tsm{font:400 9.5px/1.45 var(--draft);letter-spacing:.06em;color:var(--soft)}
+.tsm.c{text-align:center;width:100%}
+.tlogo{font:400 20px/1 var(--draft);letter-spacing:.18em;color:var(--text);white-space:nowrap}
+.c-logo{overflow:hidden}
+.phv{color:var(--accent)}
+.c-tol .tfb{justify-content:flex-start}
+.c-pcol{display:grid;grid-template-rows:auto auto 1fr}
+.c-pcol>*+*{border-top:1px solid var(--rule)}
+.proj{width:84px;height:30px;fill:none;stroke:var(--text);stroke-width:1}
+.proj .cl{stroke-dasharray:5 2 1 2;stroke:var(--muted)}
+.c-ncol{display:grid;grid-template-rows:auto 1fr}
+.c-names{display:flex;flex-direction:column;border-bottom:1px solid var(--rule)}
+.nh,.nr{display:grid;grid-template-columns:70px minmax(0,1fr) 72px;width:100%}
+.nh span{font:400 9.5px var(--draft);letter-spacing:.1em;color:var(--muted);padding:4px 6px;text-align:center}
+.nh span+span,.nr span+span{border-left:1px solid var(--rule)}
+.c-nrow{border-top:1px solid var(--rule)}
+.c-nrow .tfb{padding:0}
+.nr span{font:400 9.5px/1 var(--draft);letter-spacing:.06em;padding:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nr span:first-child{color:var(--muted)}
+.nr .phv{font-size:8.5px}
+.c-main{display:grid;grid-template-rows:auto 1fr auto auto}
+.c-main>*+*{border-top:1px solid var(--rule)}
+.r1{display:grid;grid-template-columns:minmax(0,1fr) minmax(150px,168px)}
+.r1>*+*,.r3>*+*,.r4>*+*{border-left:1px solid var(--rule)}
+.r1 .tfb{justify-content:center;min-height:42px}
+.c-title .tfb{flex-direction:row;align-items:baseline;gap:10px}
+.r3{display:grid;grid-template-columns:78px minmax(0,1fr) 64px}
+.r3 .c-size .tfb{flex-direction:row;align-items:center;gap:8px}
+.r4{display:grid;grid-template-columns:72px minmax(0,1fr) 128px}
+.r4 .tfb{flex-direction:row;align-items:center;gap:8px;min-height:30px}
+.c-sheet .tfb{justify-content:center}
+.c-sheet .tv{color:var(--accent)}
+.tip{position:absolute;left:8px;bottom:calc(100% + 6px);z-index:30;width:max-content;max-width:240px;background:var(--surface);color:var(--text);border:1px solid var(--rule);padding:9px 11px;font:400 12px/1.45 var(--body);text-transform:none;letter-spacing:0;pointer-events:auto;
+  transform-origin:bottom left;opacity:0;visibility:hidden;scale:.96;transition:opacity 100ms ease-out,scale 100ms ease-out,visibility 0s linear 100ms}
+.tip-more{display:block;margin-top:5px;font:400 9.5px/1.3 var(--draft);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.tf.show .tip{opacity:1;visibility:visible;scale:1;transition:opacity 160ms var(--ease-out),scale 160ms var(--ease-out),visibility 0s}
+.tf.show.instant .tip{transition:none}
+.tf.tr .tip{left:auto;right:8px;transform-origin:bottom right}
+
+/* Sheet counter chip (small screens), jump menu, modal */
+.mcount{display:none}
+.jump{position:fixed;z-index:60;width:260px;background:var(--surface);border:1px solid var(--rule);padding:8px;overscroll-behavior:contain;
+  transform-origin:bottom right;opacity:0;visibility:hidden;scale:.96;transition:opacity 120ms ease-out,scale 120ms ease-out,visibility 0s linear 120ms}
+.jump.open{opacity:1;visibility:visible;scale:1;transition:opacity 180ms var(--ease-out),scale 180ms var(--ease-out),visibility 0s}
+.jump.kbd,.jump.kbd.open{transition:none}
+.jump h2{font:400 10.5px var(--draft);letter-spacing:.14em;text-transform:uppercase;color:var(--muted);padding:6px 8px 8px}
+.jump ul{list-style:none}
+.jump li button,.jump .flatbtn{display:flex;gap:12px;align-items:center;width:100%;text-align:left;background:none;border:0;border-top:1px solid var(--hairline);padding:10px 8px;min-height:40px;font:400 13px var(--draft);letter-spacing:.06em;text-transform:uppercase;cursor:pointer;transition:background-color 100ms ease-out}
+.jump .flatbtn{font-size:11px;color:var(--muted);letter-spacing:.1em;text-decoration:none}
+.jump .jbeta{color:var(--accent);font-size:12px}
+.jump .jn{width:22px;color:var(--muted)}
+.jump button[aria-current=true],.jump button[aria-current=true] .jn{color:var(--accent)}
+@media (hover:hover){.jump li button:hover,.jump .flatbtn:hover{background:var(--surface-2)}}
+dialog.md{margin:auto;width:min(480px,calc(100vw - 32px));max-height:calc(100dvh - 48px);background:var(--surface);color:var(--text);border:1px solid var(--rule);padding:22px 22px 20px;overscroll-behavior:contain;opacity:0;scale:.96;transition:opacity 180ms var(--ease-out),scale 180ms var(--ease-out)}
+dialog.md.in{opacity:1;scale:1}
+dialog.md.kbd{transition:none}
+dialog.md::backdrop{background:rgba(10,14,17,.6)}
+.md-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.md .mt{font:400 clamp(22px,6.4vw,28px)/1.1 var(--draft);letter-spacing:.06em;text-transform:uppercase;margin-bottom:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.md p{color:var(--soft);margin-bottom:12px;font-size:15px}
+.md .muted{color:var(--muted);font:400 12px/1.5 var(--body)}
+.mrow{display:flex;flex-wrap:wrap;gap:8px}
+.mkv{display:grid;grid-template-columns:auto 1fr;gap:9px 16px;font:400 13px var(--draft);letter-spacing:.04em;margin-bottom:14px}
+.mkv dt{color:var(--muted);text-transform:uppercase;letter-spacing:.1em;font-size:11px;padding-top:2px}
+.mlist{list-style:none;font-size:14px;color:var(--soft);margin-bottom:12px}
+.mlist li{padding:7px 0;border-top:1px solid var(--hairline)}
+
+/* Field: content between the corner tables */
+.field{position:absolute;inset:0;padding:72px 36px var(--tbh,226px);display:flex;flex-direction:column;justify-content:center}
+h1{font:400 clamp(44px,4.4vw,70px)/1.02 var(--draft);letter-spacing:.03em;text-transform:uppercase}
+h1 em{font-style:normal;color:var(--accent)}
+h2{font:400 clamp(36px,3.6vw,56px)/1.05 var(--draft);text-transform:uppercase;letter-spacing:.04em;max-width:16ch}
+.lede{font-size:clamp(16px,1.2vw,18.5px);color:var(--soft);max-width:34em}
+.body{max-width:30em;color:var(--soft);font-size:18px}
+.copy{display:flex;flex-direction:column;gap:22px}
+/* Dimension line with arrowheads */
+.dim{position:relative;height:18px;margin-bottom:12px;border-left:1px solid var(--muted);border-right:1px solid var(--muted);display:flex;align-items:center;justify-content:center}
+.dim::before{content:"";position:absolute;left:1px;right:1px;top:50%;border-top:1px solid var(--muted)}
+.dim i{position:absolute;top:calc(50% - 3.5px);width:10px;height:7px;background:var(--muted)}
+.dim i:first-child{left:0;clip-path:polygon(0 50%,100% 0,100% 100%)}
+.dim i:last-child{right:0;clip-path:polygon(0 0,100% 50%,0 100%)}
+.dim span{position:relative;background:var(--bg);padding:0 10px;font:400 10.5px/1 var(--draft);letter-spacing:.16em;color:var(--muted)}
+.instrument .dim span,.detail .dim span{background:var(--bg)}
+
+/* Cover: BOM top left, isometric shop, hero copy right */
+.s-cover .field{padding:0 36px 0 0;display:block}
+.g-cover{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,440px);gap:28px;height:100%;min-height:0}
+.iso-wrap{display:flex;align-items:center;justify-content:center;padding:64px 0 var(--tbh,226px) 300px;min-width:0;min-height:0}
+.iso{width:100%;height:100%;max-height:100%;display:block}
+.iso .wall,.iso .floor{fill:var(--bg);stroke:var(--rule);stroke-width:1}
+.iso .grid{stroke:var(--hairline);stroke-width:.8}
+.iso .f-top{fill:var(--surface-2);stroke:var(--text);stroke-width:1;stroke-linejoin:round}
+.iso .f-side{fill:var(--surface);stroke:var(--text);stroke-width:1;stroke-linejoin:round}
+.iso .f-front{fill:var(--bg);stroke:var(--text);stroke-width:1;stroke-linejoin:round}
+.iso .f-accent-top{fill:var(--glass);stroke:var(--accent);stroke-width:1.2;stroke-linejoin:round}
+.iso .win{fill:none;stroke:var(--rule);stroke-width:1}
+.iso .glass,.iso .screen{fill:var(--glass);stroke:var(--accent);stroke-width:1}
+.iso .tape{fill:none;stroke:var(--accent);stroke-width:1;stroke-dasharray:6 4}
+.iso .ln{stroke:var(--text);stroke-width:1}
+.iso .thin{stroke:var(--rule)}
+.iso .acc{stroke:var(--accent)}
+.iso .ext{stroke:var(--muted);stroke-width:.8}
+.iso .dl{stroke:var(--muted);stroke-width:.8}
+.iso .ah{fill:var(--muted)}
+.iso .dt{font:400 11px var(--draft);letter-spacing:.16em;fill:var(--muted)}
+.iso .lead{stroke:var(--text);stroke-width:1}
+.iso .zc .ah{fill:var(--text)}
+.iso .bal{fill:var(--bg);stroke:var(--text);stroke-width:1.2}
+.iso .bt{font:400 15px var(--draft);fill:var(--text)}
+.iso .z{transition:opacity 150ms ease-out}
+.iso.has-hl .z:not(.on){opacity:.25}
+.iso .z.on .f-top,.iso .z.on .f-side,.iso .z.on .f-front,.iso .z.on .ln,.iso .z.on .lead,.iso .z.on .bal{stroke:var(--accent)}
+.iso .z.on .f-top{fill:var(--glass)}
+.iso .z.on .bt,.iso .z.on .ah{fill:var(--accent)}
+.iso .zc{cursor:pointer;outline:none}
+.iso .zc:focus-visible .bal{stroke-width:3}
+.hero-copy{display:flex;flex-direction:column;justify-content:center;gap:22px;padding:72px 0 var(--tbh,226px)}
+/* Entrance on first load, 100ms stagger (better-ui). Opacity only under reduced motion. */
+.s-cover .hero-copy>*,.s-cover .iso-wrap,.s-cover .bom{animation:fade 300ms ease-out both}
+@media (prefers-reduced-motion:no-preference){.s-cover .hero-copy>*,.s-cover .iso-wrap{animation-name:rise}}
+.s-cover .iso-wrap{animation-delay:100ms}.s-cover h1{animation-delay:200ms}.s-cover .lede{animation-delay:300ms}.s-cover .hero-copy .ctas{animation-delay:400ms}
+@keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+
+/* Sheet 2: quote field */
+.g-instant{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.6fr);gap:44px;align-items:center}
+.instrument{border:1px solid var(--rule);background:var(--surface);display:grid;grid-template-columns:minmax(0,1fr) 270px}
+.ins-bar{grid-column:1/-1;display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--hairline)}
+.ins-id{display:flex;flex-direction:column;gap:4px}
+.part{font:600 19px/1 var(--mono)}
+.part span{color:var(--muted)}
+.controls{display:flex;flex-wrap:wrap;gap:10px}
+.seg{display:inline-flex;border:1px solid var(--hairline)}
+.seg button{white-space:nowrap;font:400 11px var(--draft);letter-spacing:.1em;text-transform:uppercase;background:none;border:0;border-left:1px solid var(--hairline);padding:8px 11px;min-height:34px;cursor:pointer;color:var(--muted);transition:background-color 100ms ease-out,color 100ms ease-out}
+.seg button:first-child{border-left:0}
+@media (hover:hover){.seg button:hover{background:var(--surface-2);color:var(--text)}}
+.seg button[aria-pressed=true]{color:var(--accent);background:var(--surface-2)}
+.plot{padding:6px 6px 2px;border-right:1px solid var(--hairline);min-width:0}
+.plot svg{display:block;width:100%;height:auto}
+.plot .grid{stroke:var(--hairline)}
+.plot .tick{font:400 11px var(--mono);fill:var(--muted)}
+.plot .axis{font:400 10.5px var(--draft);letter-spacing:1.4px;fill:var(--muted)}
+.plot .pt{fill:var(--dot);stroke:var(--text);stroke-width:1.5}
+.plot .pt.lib{stroke-dasharray:2.5 2}
+.plot .pt.on{fill:var(--accent);stroke:var(--accent);stroke-dasharray:none}
+.plot .hit{fill:transparent;cursor:pointer}
+.plot .guide{stroke:var(--accent);stroke-dasharray:2 3}
+.legend{display:flex;gap:16px;flex-wrap:wrap;padding:0 0 8px 8px;font:400 11px var(--draft);letter-spacing:.06em;color:var(--muted)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:50%;border:1.5px solid var(--text);margin-right:6px;vertical-align:-1px}
+.legend i.lib{border-style:dashed}
+.readout{display:flex;flex-direction:column;min-width:0}
+.readout .sel{padding:14px 16px;border-bottom:1px solid var(--hairline);display:flex;flex-direction:column;gap:8px}
+.readout .vend{font:400 14px var(--draft);letter-spacing:.14em;color:var(--accent)}
+.readout .big{font:500 30px/1 var(--mono);letter-spacing:-.02em}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font:400 12px var(--mono)}
+.kv dt{color:var(--muted);text-transform:uppercase;letter-spacing:.1em;font:400 10.5px var(--draft)}
+.kv dd{text-align:right}
+.list button{display:grid;grid-template-columns:1fr auto auto;gap:10px;width:100%;text-align:left;font:400 11.5px var(--mono);background:none;border:0;border-bottom:1px solid var(--hairline);padding:7px 16px;cursor:pointer;transition:background-color 100ms ease-out}
+@media (hover:hover){.list button:hover{background:var(--surface-2)}}
+.list button.on{color:var(--accent);font-weight:600}
+@media (min-width:761px){.list button:nth-child(n+6){display:none}.readout .sel{padding:12px 16px}}
+.empty{padding:16px;font:400 12px var(--mono);color:var(--muted)}
+.ins-foot{grid-column:1/-1;padding:8px 16px;border-top:1px solid var(--hairline)}
+
+/* Sheets 3 and 4 */
+.g-split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);gap:56px;align-items:center}
+.detail{display:flex;flex-direction:column}
+.attrs{display:grid;grid-template-columns:repeat(2,1fr);border:1px solid var(--rule)}
+.attrs>div{padding:16px;min-height:84px;display:flex;align-items:flex-end;font:400 clamp(18px,1.6vw,24px)/1.1 var(--draft);letter-spacing:.06em;text-transform:uppercase;border-top:1px solid var(--hairline);border-left:1px solid var(--hairline)}
+.attrs>div:nth-child(-n+2){border-top:0}
+.attrs>div:nth-child(odd){border-left:0}
+.attrs .wide{grid-column:span 2;border-left:0}
+.attrs .photo{grid-column:span 2;border-left:0;min-height:120px;flex-direction:column;align-items:flex-start;justify-content:space-between;gap:10px;font:inherit;background:repeating-linear-gradient(135deg,transparent 0 9px,var(--hairline) 9px 10px)}
+.pcap{font:400 12px/1.5 var(--body);color:var(--muted);background:var(--bg);padding:6px 8px;text-transform:none;letter-spacing:0}
+.flow{display:grid;grid-template-columns:minmax(0,1fr) 48px minmax(0,1fr);align-items:center}
+.chan{display:flex;flex-direction:column;border:1px solid var(--rule)}
+.chan div{padding:16px 18px;font:400 15px var(--draft);letter-spacing:.08em;text-transform:uppercase;border-top:1px solid var(--hairline)}
+.chan div:first-child{border-top:0}
+.chan small{display:block;margin-top:4px;font:400 12px var(--body);text-transform:none;letter-spacing:0;color:var(--muted)}
+.join{height:calc(100% - 52px);border:1px solid var(--rule);border-left:0;position:relative}
+.join::after{content:"";position:absolute;right:-48px;top:50%;width:48px;border-top:1px solid var(--accent)}
+.out{margin-left:48px;border:1px solid var(--accent);padding:20px;display:flex;flex-direction:column;gap:12px}
+.out b{font:400 24px/1.1 var(--draft);letter-spacing:.08em;text-transform:uppercase}
+.out ul{list-style:none;font:400 13px/1.9 var(--draft);letter-spacing:.06em;text-transform:uppercase;color:var(--soft)}
+/* Sheet 5 */
+.g-results{display:flex;flex-direction:column;gap:22px}
+.g-results .words{max-width:none;display:flex;flex-wrap:wrap;gap:0 .3em;font-size:clamp(44px,4.4vw,70px);line-height:1.02;letter-spacing:.03em}
+.g-results .words span:first-child{color:var(--accent)}
+.g-results .words span:last-child{color:var(--muted)}
+.g-results .dim{max-width:760px}
+.body.big{font-size:clamp(19px,1.6vw,23px);max-width:32em}
+/* Sheet 6 */
+.g-founder{display:flex;flex-direction:column;gap:22px;max-width:980px}
+.g-founder .fl{max-width:none}
+.g-founder blockquote{font:400 clamp(24px,2.4vw,36px)/1.35 var(--body);max-width:26em}
+.g-founder blockquote .sig{display:block;margin-top:16px;font:400 14px/1.2 var(--draft);letter-spacing:.14em;color:var(--muted)}
+.draftnote{margin-top:-6px}
+
+@media (max-width:1240px){
+  .tb{width:calc(100% - 120px)}
+  .pager{bottom:auto;top:auto;left:120px;bottom:calc(var(--tbh,190px) + 12px)}
+  .g-cover{grid-template-columns:minmax(0,1fr) minmax(0,380px)}
+  .iso-wrap{padding-left:0;padding-top:230px}
+}
+/* Small screens: each sheet scrolls inside itself; corner tables become full width bands, still flush */
+@media (max-width:760px){
+  :root{--z:13px}
+  .bar{padding:0 12px}
+  .bar .join-top{display:none}
+  .sheet{padding:8px}
+  html.flat .sheet{height:auto;min-height:0}
+  .frame{height:auto;min-height:100%}
+  .zt span,.zl span{font-size:9px}
+  .inner{display:flex;flex-direction:column;overflow:visible}
+  .bom,.revs,.tb,.qr,.pager,.field{position:static}
+  .revs{order:1;min-width:0;width:100%}
+  .revs thead{display:none}
+  .revs tbody tr:not(:last-child){display:none}
+  .revs td{padding:7px 8px;height:28px}
+  .revs tr>:first-child{border-left:0}
+  .bom{order:4;width:100%}
+  .bom tr>:last-child{border-right:0}
+  .bom thead tr:first-child>*{border-top:1px solid var(--rule)}
+  .field,.s-cover .field{order:3;padding:24px 16px 20px;display:flex;flex-direction:column}
+  .pager{order:5;padding:14px 12px;justify-content:space-between}
+  .pg[aria-disabled=true]{display:none}
+  .pg{flex:1;justify-content:center;display:inline-flex;align-items:center;gap:6px;min-height:44px}
+  .tb{order:6;width:100%;border-left:0;grid-template-columns:1fr 1fr;overflow-x:clip}
+  .tip{max-width:min(240px,calc(100vw - 32px))}
+  .tb>*+*{border-left:0}
+  .c-main{grid-column:1/-1;order:-1}
+  .c-ncol{grid-column:1/-1;border-top:1px solid var(--rule)}
+  .c-pcol{border-top:1px solid var(--rule)}
+  .c-tol{border-top:1px solid var(--rule);border-left:1px solid var(--rule)!important}
+  .r1{grid-template-columns:minmax(0,1fr) 140px}
+  .tlogo{font-size:18px;letter-spacing:.12em}
+  .r4{grid-template-columns:62px minmax(0,1fr) 112px}
+  .tfb{min-height:44px}
+  .qr{order:7;width:92px;height:92px;border-top:1px solid var(--rule)}
+  .inner{padding-bottom:64px}
+  .tf .tip{left:8px;right:auto;transform-origin:bottom left}
+  .tf.tr .tip{left:auto;right:8px;transform-origin:bottom right}
+  .g-cover{display:flex;flex-direction:column;gap:24px;height:auto}
+  .iso-wrap{padding:0;order:2;margin-top:4px}
+  .hero-copy{padding:0;order:1}
+  .s-cover .field{gap:24px}
+  h1{font-size:clamp(40px,11.5vw,56px)}
+  h2{font-size:clamp(32px,9.6vw,44px)}
+  .g-instant,.g-split{grid-template-columns:1fr;gap:28px}
+  .instrument{grid-template-columns:1fr}
+  .plot{border-right:0;border-bottom:1px solid var(--hairline)}
+  .ins-bar .controls{width:100%}
+  .flow{grid-template-columns:1fr;gap:0}
+  .join{height:28px;width:1px;border:0;border-left:1px solid var(--accent);margin-left:24px}
+  .join::after{display:none}
+  .out{margin-left:0}
+  .g-results .words{font-size:clamp(40px,11.5vw,56px)}
+  .mcount{display:inline-flex;position:fixed;right:10px;bottom:calc(10px + env(safe-area-inset-bottom));z-index:55;align-items:center;gap:6px;min-height:44px;padding:0 14px;background:var(--surface);border:1px solid var(--rule);font:400 12px var(--draft);letter-spacing:.12em;text-transform:uppercase;cursor:pointer}
+  .mcount b{color:var(--accent);font-weight:400}
+}
+@media (pointer:coarse){
+  .seg button,.btn.sm,.pg{min-height:44px}
+}
+@media (pointer:coarse) and (max-width:760px){.seg button{padding:12px 14px}}
+@media (prefers-reduced-motion:reduce){
+  .btn,.pg,.tip,.jump,dialog.md{transition-property:opacity!important}
+  .btn:not(:disabled):active,.pg:active{scale:1}
+  .tip,.jump,dialog.md{scale:1!important}
+}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><symbol id="qr-sym" viewBox="0 0 33 33"><path fill="#ffffff" d="M0 0h33v33H0z"/><path stroke="#000000" d="M2 2.5h7m2 0h2m1 0h1m2 0h2m2 0h2m1 0h7M2 3.5h1m5 0h1m4 0h2m4 0h2m1 0h1m1 0h1m5 0h1M2 4.5h1m1 0h3m1 0h1m1 0h1m1 0h2m2 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h3m1 0h1M2 5.5h1m1 0h3m1 0h1m1 0h1m7 0h3m3 0h1m1 0h3m1 0h1M2 6.5h1m1 0h3m1 0h1m1 0h1m4 0h3m1 0h4m1 0h1m1 0h3m1 0h1M2 7.5h1m5 0h1m1 0h3m1 0h6m4 0h1m5 0h1M2 8.5h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7M10 9.5h1m2 0h1m1 0h1m1 0h1m2 0h1m1 0h1M2 10.5h1m1 0h5m2 0h1m4 0h2m1 0h1m2 0h1m1 0h5M3 11.5h2m1 0h2m1 0h1m1 0h1m5 0h2m1 0h7m3 0h1M2 12.5h1m4 0h2m2 0h3m5 0h2m3 0h1M2 13.5h2m3 0h1m6 0h1m1 0h1m1 0h1m2 0h2m1 0h2m1 0h1m1 0h1M4 14.5h5m1 0h1m7 0h2m7 0h2M2 15.5h1m1 0h1m6 0h1m1 0h1m1 0h3m1 0h4m1 0h1m1 0h1m3 0h1M2 16.5h1m1 0h3m1 0h2m2 0h1m1 0h6m2 0h1m2 0h1m1 0h2M2 17.5h3m6 0h2m1 0h2m1 0h1m5 0h4m2 0h1M2 18.5h4m1 0h2m3 0h1m3 0h2m1 0h1m5 0h1m1 0h2M2 19.5h1m6 0h2m6 0h10m1 0h1m1 0h1M2 20.5h1m3 0h3m3 0h1m1 0h1m10 0h1m2 0h1M2 21.5h1m1 0h1m2 0h1m1 0h1m6 0h1m1 0h1m2 0h1m3 0h2m2 0h1M2 22.5h1m2 0h1m1 0h2m2 0h2m1 0h1m3 0h1m1 0h1m1 0h5m1 0h3M10 23.5h1m1 0h1m2 0h3m1 0h4m3 0h5M2 24.5h7m2 0h2m1 0h6m1 0h2m1 0h1m1 0h3M2 25.5h1m5 0h1m1 0h2m2 0h2m1 0h1m1 0h4m3 0h1m3 0h1M2 26.5h1m1 0h3m1 0h1m1 0h4m2 0h2m4 0h5m1 0h3M2 27.5h1m1 0h3m1 0h1m1 0h3m1 0h1m2 0h2m1 0h1m4 0h1m1 0h2M2 28.5h1m1 0h3m1 0h1m1 0h3m2 0h2m3 0h2m2 0h6M2 29.5h1m5 0h1m3 0h4m2 0h1m3 0h2m1 0h1m1 0h1m1 0h1M2 30.5h7m1 0h2m2 0h2m2 0h1m1 0h2m1 0h6"/></symbol></svg>
+<a class="skip" href="#h-cover">Skip to the first sheet</a>
+<header class="bar">
+  <a class="wordmark" href="https://www.overdrafter.com">Overdrafter</a>
+  <div class="actions">
+    <button type="button" class="btn sm" id="theme" aria-label="Switch to light theme">Theme</button>
+    <a class="btn sm" href="https://www.overdrafter.com/?auth=signin">Sign in</a>
+    <a class="btn sm join-top" href="https://www.overdrafter.com/?auth=signup">Join the founding beta</a>
+  </div>
+</header>
+<main class="deck" aria-label="Print set">
+<section class="sheet s-cover" id="sheet-cover" data-i="0" data-title="Cover" aria-labelledby="h-cover" aria-roledescription="sheet"><div class="frame"><div class="zt" aria-hidden="true"><span>6</span><span>5</span><span>4</span><span>3</span><span>2</span><span>1</span></div><div class="zl" aria-hidden="true"><span>D</span><span>C</span><span>B</span><span>A</span></div><div class="inner"><table class="bom tbl" aria-label="Bill of materials"><thead><tr><th scope="col">ITEM NO.</th><th scope="col">PART NUMBER</th><th scope="col">DESCRIPTION</th></tr></thead><tbody><tr data-zone="design"><td class="c">1</td><td>OVD-001</td><td><button type="button" class="bom-b" data-zone="design" aria-label="Item 1, OVD-001, Design. Highlight CAD desk in the drawing">DESIGN</button></td></tr><tr data-zone="analysis"><td class="c">2</td><td>OVD-002</td><td><button type="button" class="bom-b" data-zone="analysis" aria-label="Item 2, OVD-002, Analysis. Highlight Analysis workstation in the drawing">ANALYSIS</button></td></tr><tr data-zone="pdm"><td class="c">3</td><td>OVD-003</td><td><button type="button" class="bom-b" data-zone="pdm" aria-label="Item 3, OVD-003, Pdm. Highlight File server in the drawing">PDM</button></td></tr><tr data-zone="fab"><td class="c">4</td><td>OVD-004</td><td><button type="button" class="bom-b" data-zone="fab" aria-label="Item 4, OVD-004, Fabrication. Highlight CNC machines in the drawing">FABRICATION</button></td></tr><tr data-zone="fulfil"><td class="c">5</td><td>OVD-005</td><td><button type="button" class="bom-b" data-zone="fulfil" aria-label="Item 5, OVD-005, Fulfillment. Highlight Shipping dock in the drawing">FULFILLMENT</button></td></tr><tr data-zone="market"><td class="c">6</td><td>OVD-006</td><td><button type="button" class="bom-b" data-zone="market" aria-label="Item 6, OVD-006, Marketplace. Highlight Showroom counter in the drawing">MARKETPLACE</button></td></tr></tbody></table><table class="revs tbl" aria-label="Revisions"><thead><tr><th colspan="4" scope="colgroup">REVISIONS</th></tr><tr><th scope="col">REV.</th><th scope="col">DESCRIPTION</th><th scope="col">ENG.</th><th scope="col">DATE</th></tr></thead><tbody><tr><td class="c">01</td><td class="c"><button type="button" class="rv" data-rev="01" aria-label="Rev 01, PRE-RELEASE, 10/11/2026. Show what changed">PRE-RELEASE</button></td><td class="c">BSW</td><td class="c">10/11/2026</td></tr></tbody></table><div class="field"><div class="g-cover">
+  <div class="iso-wrap"><svg class="iso" viewBox="-340 -195 812 636" role="group" aria-labelledby="iso-t"><title id="iso-t">Isometric view of a machine shop and engineering office. Balloons one to six link each zone to its line in the bill of materials.</title><polygon class="wall" points="0.0,0.0 419.2,242.0 419.2,55.0 0.0,-187.0"/><polygon class="wall" points="0.0,0.0 -285.8,165.0 -285.8,-22.0 0.0,-187.0"/><polygon class="floor" points="0.0,0.0 419.2,242.0 133.4,407.0 -285.8,165.0"/><line class="grid" x1="38.1" y1="22.0" x2="-247.7" y2="187.0"/><line class="grid" x1="76.2" y1="44.0" x2="-209.6" y2="209.0"/><line class="grid" x1="114.3" y1="66.0" x2="-171.5" y2="231.0"/><line class="grid" x1="152.4" y1="88.0" x2="-133.4" y2="253.0"/><line class="grid" x1="190.5" y1="110.0" x2="-95.3" y2="275.0"/><line class="grid" x1="228.6" y1="132.0" x2="-57.2" y2="297.0"/><line class="grid" x1="266.7" y1="154.0" x2="-19.1" y2="319.0"/><line class="grid" x1="304.8" y1="176.0" x2="19.1" y2="341.0"/><line class="grid" x1="342.9" y1="198.0" x2="57.2" y2="363.0"/><line class="grid" x1="381.1" y1="220.0" x2="95.3" y2="385.0"/><line class="grid" x1="-38.1" y1="22.0" x2="381.1" y2="264.0"/><line class="grid" x1="-76.2" y1="44.0" x2="342.9" y2="286.0"/><line class="grid" x1="-114.3" y1="66.0" x2="304.8" y2="308.0"/><line class="grid" x1="-152.4" y1="88.0" x2="266.7" y2="330.0"/><line class="grid" x1="-190.5" y1="110.0" x2="228.6" y2="352.0"/><line class="grid" x1="-228.6" y1="132.0" x2="190.5" y2="374.0"/><line class="grid" x1="-266.7" y1="154.0" x2="152.4" y2="396.0"/><polygon class="win" points="163.9,15.4 224.8,50.6 224.8,-15.4 163.9,-50.6"/><polygon class="win" points="240.1,59.4 301.0,94.6 301.0,28.6 240.1,-6.6"/><polygon class="win" points="-213.4,123.2 -266.7,154.0 -266.7,-0.0 -213.4,-30.8"/><g class="z" data-zone="pdm"><polygon class="f-top" points="316.3,46.2 354.4,68.2 318.2,89.1 280.1,67.1"/><polygon class="f-side" points="354.4,213.4 318.2,234.3 318.2,89.1 354.4,68.2"/><polygon class="f-front" points="280.1,212.3 318.2,234.3 318.2,89.1 280.1,67.1"/><line class="ln thin" x1="282.9" y1="202.9" x2="315.3" y2="221.6"/><line class="ln thin" x1="282.9" y1="190.8" x2="315.3" y2="209.5"/><line class="ln thin" x1="282.9" y1="178.7" x2="315.3" y2="197.4"/><line class="ln thin" x1="282.9" y1="166.6" x2="315.3" y2="185.3"/><line class="ln thin" x1="282.9" y1="154.5" x2="315.3" y2="173.2"/><line class="ln thin" x1="282.9" y1="142.4" x2="315.3" y2="161.1"/><line class="ln thin" x1="282.9" y1="130.3" x2="315.3" y2="149.0"/><line class="ln thin" x1="282.9" y1="118.2" x2="315.3" y2="136.9"/><line class="ln thin" x1="282.9" y1="106.1" x2="315.3" y2="124.8"/><line class="ln thin" x1="282.9" y1="94.0" x2="315.3" y2="112.7"/><line class="ln thin" x1="282.9" y1="81.9" x2="315.3" y2="100.6"/><line class="ln acc" x1="284.8" y1="198.5" x2="290.6" y2="201.8"/><line class="ln acc" x1="284.8" y1="174.3" x2="290.6" y2="177.6"/><line class="ln acc" x1="284.8" y1="150.1" x2="290.6" y2="153.4"/><line class="ln acc" x1="284.8" y1="125.9" x2="290.6" y2="129.2"/><line class="ln acc" x1="284.8" y1="101.7" x2="290.6" y2="105.0"/><line class="ln acc" x1="284.8" y1="77.5" x2="290.6" y2="80.8"/><polygon class="f-top" points="358.2,70.4 396.3,92.4 360.1,113.3 322.0,91.3"/><polygon class="f-side" points="396.3,237.6 360.1,258.5 360.1,113.3 396.3,92.4"/><polygon class="f-front" points="322.0,236.5 360.1,258.5 360.1,113.3 322.0,91.3"/><line class="ln thin" x1="324.8" y1="227.1" x2="357.2" y2="245.8"/><line class="ln thin" x1="324.8" y1="215.0" x2="357.2" y2="233.7"/><line class="ln thin" x1="324.8" y1="202.9" x2="357.2" y2="221.6"/><line class="ln thin" x1="324.8" y1="190.8" x2="357.2" y2="209.5"/><line class="ln thin" x1="324.8" y1="178.7" x2="357.2" y2="197.4"/><line class="ln thin" x1="324.8" y1="166.6" x2="357.2" y2="185.3"/><line class="ln thin" x1="324.8" y1="154.5" x2="357.2" y2="173.2"/><line class="ln thin" x1="324.8" y1="142.4" x2="357.2" y2="161.1"/><line class="ln thin" x1="324.8" y1="130.3" x2="357.2" y2="149.0"/><line class="ln thin" x1="324.8" y1="118.2" x2="357.2" y2="136.9"/><line class="ln thin" x1="324.8" y1="106.1" x2="357.2" y2="124.8"/><line class="ln acc" x1="326.8" y1="222.7" x2="332.5" y2="226.0"/><line class="ln acc" x1="326.8" y1="198.5" x2="332.5" y2="201.8"/><line class="ln acc" x1="326.8" y1="174.3" x2="332.5" y2="177.6"/><line class="ln acc" x1="326.8" y1="150.1" x2="332.5" y2="153.4"/><line class="ln acc" x1="326.8" y1="125.9" x2="332.5" y2="129.2"/><line class="ln acc" x1="326.8" y1="101.7" x2="332.5" y2="105.0"/></g><g class="z" data-zone="fab"><polygon class="f-top" points="0.0,-90.2 95.3,-35.2 26.7,4.4 -68.6,-50.6"/><polygon class="f-side" points="95.3,88.0 26.7,127.6 26.7,4.4 95.3,-35.2"/><polygon class="f-front" points="-68.6,72.6 26.7,127.6 26.7,4.4 -68.6,-50.6"/><polygon class="glass" points="-51.4,42.9 -1.9,71.5 -1.9,9.9 -51.4,-18.7"/><polygon class="f-top" points="15.2,-92.4 53.3,-70.4 19.1,-50.6 -19.1,-72.6"/><polygon class="f-side" points="53.3,-44.0 19.1,-24.2 19.1,-50.6 53.3,-70.4"/><polygon class="f-front" points="-19.1,-46.2 19.1,-24.2 19.1,-50.6 -19.1,-72.6"/><polygon class="f-top" points="47.6,18.7 52.4,21.4 35.2,31.3 30.5,28.6"/><polygon class="f-side" points="52.4,56.6 35.2,66.5 35.2,31.3 52.4,21.4"/><polygon class="f-front" points="30.5,63.8 35.2,66.5 35.2,31.3 30.5,28.6"/><polygon class="f-top" points="121.9,57.2 243.9,127.6 194.3,156.2 72.4,85.8"/><polygon class="f-side" points="243.9,184.8 194.3,213.4 194.3,156.2 243.9,127.6"/><polygon class="f-front" points="72.4,143.0 194.3,213.4 194.3,156.2 72.4,85.8"/><polygon class="f-top" points="121.9,28.6 243.9,99.0 194.3,127.6 72.4,57.2"/><polygon class="f-side" points="243.9,127.6 194.3,156.2 194.3,127.6 243.9,99.0"/><polygon class="f-front" points="72.4,85.8 194.3,156.2 194.3,127.6 72.4,57.2"/><polygon class="f-top" points="121.9,13.2 150.5,29.7 116.2,49.5 87.6,33.0"/><polygon class="f-side" points="150.5,53.9 116.2,73.7 116.2,49.5 150.5,29.7"/><polygon class="f-front" points="87.6,57.2 116.2,73.7 116.2,49.5 87.6,33.0"/></g><g class="z" data-zone="market"><polygon class="f-top" points="-104.8,1.1 -68.6,22.0 -144.8,66.0 -181.0,45.1"/><polygon class="f-side" points="-68.6,88.0 -144.8,132.0 -144.8,66.0 -68.6,22.0"/><polygon class="f-front" points="-181.0,111.1 -144.8,132.0 -144.8,66.0 -181.0,45.1"/><line class="ln thin" x1="-68.6" y1="35.2" x2="-144.8" y2="79.2"/><polygon class="f-accent-top" points="-104.8,-3.3 -91.5,4.4 -104.8,12.1 -118.1,4.4"/><polygon class="f-side" points="-91.5,15.4 -104.8,23.1 -104.8,12.1 -91.5,4.4"/><polygon class="f-front" points="-118.1,15.4 -104.8,23.1 -104.8,12.1 -118.1,4.4"/><polygon class="f-top" points="-131.5,14.3 -114.3,24.2 -133.4,35.2 -150.5,25.3"/><polygon class="f-side" points="-114.3,30.8 -133.4,41.8 -133.4,35.2 -114.3,24.2"/><polygon class="f-front" points="-150.5,31.9 -133.4,41.8 -133.4,35.2 -150.5,25.3"/><polygon class="f-accent-top" points="-154.3,20.9 -144.8,26.4 -154.3,31.9 -163.9,26.4"/><polygon class="f-side" points="-144.8,44.0 -154.3,49.5 -154.3,31.9 -144.8,26.4"/><polygon class="f-front" points="-163.9,44.0 -154.3,49.5 -154.3,31.9 -163.9,26.4"/><polygon class="f-top" points="-114.3,-55.4 -102.9,-48.8 -171.5,-9.2 -182.9,-15.8"/><polygon class="f-side" points="-102.9,-46.2 -171.5,-6.6 -171.5,-9.2 -102.9,-48.8"/><polygon class="f-front" points="-182.9,-13.2 -171.5,-6.6 -171.5,-9.2 -182.9,-15.8"/><polygon class="f-top" points="-120.0,-60.9 -112.4,-56.5 -121.9,-51.0 -129.6,-55.4"/><polygon class="f-side" points="-112.4,-45.5 -121.9,-40.0 -121.9,-51.0 -112.4,-56.5"/><polygon class="f-front" points="-129.6,-44.4 -121.9,-40.0 -121.9,-51.0 -129.6,-55.4"/><polygon class="f-top" points="-142.9,-43.3 -135.3,-38.9 -150.5,-30.1 -158.1,-34.5"/><polygon class="f-side" points="-135.3,-32.3 -150.5,-23.5 -150.5,-30.1 -135.3,-38.9"/><polygon class="f-front" points="-158.1,-27.9 -150.5,-23.5 -150.5,-30.1 -158.1,-34.5"/><polygon class="f-top" points="-165.8,-36.7 -158.1,-32.3 -165.8,-27.9 -173.4,-32.3"/><polygon class="f-side" points="-158.1,-19.1 -165.8,-14.7 -165.8,-27.9 -158.1,-32.3"/><polygon class="f-front" points="-173.4,-19.1 -165.8,-14.7 -165.8,-27.9 -173.4,-32.3"/></g><g class="z" data-zone="analysis"><polygon class="f-top" points="-112.4,80.3 -108.2,82.7 -112.4,85.1 -116.6,82.7"/><polygon class="f-side" points="-108.2,137.7 -112.4,140.1 -112.4,85.1 -108.2,82.7"/><polygon class="f-front" points="-116.6,137.7 -112.4,140.1 -112.4,85.1 -116.6,82.7"/><polygon class="f-top" points="-28.6,128.7 -24.4,131.1 -28.6,133.5 -32.8,131.1"/><polygon class="f-side" points="-24.4,186.1 -28.6,188.5 -28.6,133.5 -24.4,131.1"/><polygon class="f-front" points="-32.8,186.1 -28.6,188.5 -28.6,133.5 -32.8,131.1"/><polygon class="f-top" points="-152.4,103.4 -148.2,105.8 -152.4,108.2 -156.6,105.8"/><polygon class="f-side" points="-148.2,160.8 -152.4,163.2 -152.4,108.2 -148.2,105.8"/><polygon class="f-front" points="-156.6,160.8 -152.4,163.2 -152.4,108.2 -156.6,105.8"/><polygon class="f-top" points="-68.6,151.8 -64.4,154.2 -68.6,156.6 -72.8,154.2"/><polygon class="f-side" points="-64.4,209.2 -68.6,211.6 -68.6,156.6 -64.4,154.2"/><polygon class="f-front" points="-72.8,209.2 -68.6,211.6 -68.6,156.6 -72.8,154.2"/><polygon class="f-top" points="-47.6,139.7 -34.3,147.4 -66.7,166.1 -80.0,158.4"/><polygon class="f-side" points="-34.3,184.8 -66.7,203.5 -66.7,166.1 -34.3,147.4"/><polygon class="f-front" points="-80.0,195.8 -66.7,203.5 -66.7,166.1 -80.0,158.4"/><polygon class="f-top" points="-112.4,73.7 -21.0,126.5 -68.6,154.0 -160.0,101.2"/><polygon class="f-side" points="-21.0,130.9 -68.6,158.4 -68.6,154.0 -21.0,126.5"/><polygon class="f-front" points="-160.0,105.6 -68.6,158.4 -68.6,154.0 -160.0,101.2"/><polygon class="f-top" points="-107.6,66.5 -101.9,69.8 -107.6,73.1 -113.4,69.8"/><polygon class="f-side" points="-101.9,83.0 -107.6,86.3 -107.6,73.1 -101.9,69.8"/><polygon class="f-front" points="-113.4,83.0 -107.6,86.3 -107.6,73.1 -113.4,69.8"/><polygon class="f-top" points="-119.1,32.4 -82.9,53.3 -85.9,55.1 -122.1,34.2"/><polygon class="f-side" points="-82.9,81.9 -85.9,83.7 -85.9,55.1 -82.9,53.3"/><polygon class="f-front" points="-122.1,62.8 -85.9,83.7 -85.9,55.1 -122.1,34.2"/><polygon class="screen" points="-119.7,61.6 -88.4,79.6 -88.4,56.3 -119.7,38.3"/><polygon class="f-top" points="-67.6,89.6 -61.9,92.9 -67.6,96.2 -73.4,92.9"/><polygon class="f-side" points="-61.9,106.1 -67.6,109.4 -67.6,96.2 -61.9,92.9"/><polygon class="f-front" points="-73.4,106.1 -67.6,109.4 -67.6,96.2 -73.4,92.9"/><polygon class="f-top" points="-79.1,55.5 -42.9,76.4 -45.9,78.2 -82.1,57.3"/><polygon class="f-side" points="-42.9,105.0 -45.9,106.8 -45.9,78.2 -42.9,76.4"/><polygon class="f-front" points="-82.1,85.9 -45.9,106.8 -45.9,78.2 -82.1,57.3"/><polygon class="screen" points="-79.6,84.7 -48.4,102.7 -48.4,79.4 -79.6,61.4"/><line class="ln acc" x1="-114.7" y1="61.8" x2="-114.7" y2="55.2"/><line class="ln acc" x1="-109.0" y1="65.1" x2="-109.0" y2="53.0"/><line class="ln acc" x1="-103.3" y1="68.4" x2="-103.3" y2="59.6"/><line class="ln acc" x1="-97.5" y1="71.7" x2="-97.5" y2="55.2"/><line class="ln acc" x1="-91.8" y1="75.0" x2="-91.8" y2="61.8"/></g><g class="z" data-zone="design"><polygon class="f-top" points="38.1,165.0 42.9,167.7 38.1,170.5 33.3,167.7"/><polygon class="f-side" points="42.9,222.7 38.1,225.5 38.1,170.5 42.9,167.7"/><polygon class="f-front" points="33.3,222.7 38.1,225.5 38.1,170.5 33.3,167.7"/><polygon class="f-top" points="137.2,222.2 141.9,224.9 137.2,227.7 132.4,224.9"/><polygon class="f-side" points="141.9,279.9 137.2,282.7 137.2,227.7 141.9,224.9"/><polygon class="f-front" points="132.4,279.9 137.2,282.7 137.2,227.7 132.4,224.9"/><polygon class="f-top" points="-5.7,190.3 -1.0,193.0 -5.7,195.8 -10.5,193.0"/><polygon class="f-side" points="-1.0,248.0 -5.7,250.8 -5.7,195.8 -1.0,193.0"/><polygon class="f-front" points="-10.5,248.0 -5.7,250.8 -5.7,195.8 -10.5,193.0"/><polygon class="f-top" points="93.4,247.5 98.1,250.2 93.4,253.0 88.6,250.2"/><polygon class="f-side" points="98.1,305.2 93.4,308.0 93.4,253.0 98.1,250.2"/><polygon class="f-front" points="88.6,305.2 93.4,308.0 93.4,253.0 88.6,250.2"/><polygon class="f-top" points="38.1,158.4 148.6,222.2 95.3,253.0 -15.2,189.2"/><polygon class="f-side" points="148.6,226.6 95.3,257.4 95.3,253.0 148.6,222.2"/><polygon class="f-front" points="-15.2,193.6 95.3,257.4 95.3,253.0 -15.2,189.2"/><polygon class="f-top" points="76.2,173.8 85.7,179.3 78.1,183.7 68.6,178.2"/><polygon class="f-side" points="85.7,194.7 78.1,199.1 78.1,183.7 85.7,179.3"/><polygon class="f-front" points="68.6,193.6 78.1,199.1 78.1,183.7 68.6,178.2"/><polygon class="f-top" points="53.3,118.8 110.5,151.8 106.7,154.0 49.5,121.0"/><polygon class="f-side" points="110.5,191.4 106.7,193.6 106.7,154.0 110.5,151.8"/><polygon class="f-front" points="49.5,160.6 106.7,193.6 106.7,154.0 49.5,121.0"/><polygon class="screen" points="52.4,158.9 103.8,188.6 103.8,155.6 52.4,125.9"/><polygon class="f-accent-top" points="101.0,220.0 120.0,231.0 106.7,238.7 87.6,227.7"/><polygon class="f-side" points="120.0,234.3 106.7,242.0 106.7,238.7 120.0,231.0"/><polygon class="f-front" points="87.6,231.0 106.7,242.0 106.7,238.7 87.6,227.7"/><polygon class="f-accent-top" points="101.0,206.8 104.8,209.0 91.5,216.7 87.6,214.5"/><polygon class="f-side" points="104.8,222.2 91.5,229.9 91.5,216.7 104.8,209.0"/><polygon class="f-front" points="87.6,227.7 91.5,229.9 91.5,216.7 87.6,214.5"/><polygon class="f-top" points="13.3,240.9 43.8,258.5 17.1,273.9 -13.3,256.3"/><polygon class="f-side" points="43.8,262.9 17.1,278.3 17.1,273.9 43.8,258.5"/><polygon class="f-front" points="-13.3,260.7 17.1,278.3 17.1,273.9 -13.3,256.3"/><polygon class="f-top" points="-9.5,218.9 21.0,236.5 17.1,238.7 -13.3,221.1"/><polygon class="f-side" points="21.0,271.7 17.1,273.9 17.1,238.7 21.0,236.5"/><polygon class="f-front" points="-13.3,256.3 17.1,273.9 17.1,238.7 -13.3,221.1"/><polygon class="f-top" points="15.2,259.6 19.1,261.8 15.2,264.0 11.4,261.8"/><polygon class="f-side" points="19.1,294.8 15.2,297.0 15.2,264.0 19.1,261.8"/><polygon class="f-front" points="11.4,294.8 15.2,297.0 15.2,264.0 11.4,261.8"/></g><g class="z" data-zone="fulfil"><polygon class="tape" points="167.7,290.4 247.7,336.6 163.9,385.0 83.8,338.8"/><polygon class="f-top" points="167.7,294.8 228.6,330.0 175.3,360.8 114.3,325.6"/><polygon class="f-side" points="228.6,338.8 175.3,369.6 175.3,360.8 228.6,330.0"/><polygon class="f-front" points="114.3,334.4 175.3,369.6 175.3,360.8 114.3,325.6"/><polygon class="f-top" points="167.7,272.8 196.2,289.3 173.4,302.5 144.8,286.0"/><polygon class="f-side" points="196.2,315.7 173.4,328.9 173.4,302.5 196.2,289.3"/><polygon class="f-front" points="144.8,312.4 173.4,328.9 173.4,302.5 144.8,286.0"/><polygon class="f-top" points="198.1,281.6 221.0,294.8 175.3,321.2 152.4,308.0"/><polygon class="f-side" points="221.0,330.0 175.3,356.4 175.3,321.2 221.0,294.8"/><polygon class="f-front" points="152.4,343.2 175.3,356.4 175.3,321.2 152.4,308.0"/><polygon class="f-top" points="141.0,294.8 169.6,311.3 150.5,322.3 121.9,305.8"/><polygon class="f-side" points="169.6,331.1 150.5,342.1 150.5,322.3 169.6,311.3"/><polygon class="f-front" points="121.9,325.6 150.5,342.1 150.5,322.3 121.9,305.8"/></g><line class="ext" x1="-285.8" y1="165.0" x2="-331.5" y2="191.4"/><line class="ext" x1="133.4" y1="407.0" x2="87.6" y2="433.4"/><line class="dl" x1="-326.9" y1="188.8" x2="92.2" y2="430.8"/><polygon class="ah" points="-326.9,188.8 -317.4,190.3 -320.8,196.2"/><polygon class="ah" points="92.2,430.8 82.7,429.2 86.1,423.3"/><text class="dt" text-anchor="middle" transform="translate(-113.9,303.7) rotate(30.0)">EVERY MACHINE SHOP</text><line class="ext" x1="419.2" y1="242.0" x2="464.9" y2="268.4"/><line class="ext" x1="133.4" y1="407.0" x2="179.1" y2="433.4"/><line class="dl" x1="460.3" y1="265.8" x2="174.5" y2="430.8"/><polygon class="ah" points="460.3,265.8 454.2,273.2 450.8,267.3"/><polygon class="ah" points="174.5,430.8 180.6,423.3 184.0,429.2"/><text class="dt" text-anchor="middle" transform="translate(313.9,342.2) rotate(330.0)">ONE UPLOAD</text><g class="z zc" data-zone="design" tabindex="0" role="button" aria-label="Balloon 1, CAD desk: Design, part OVD-001. Highlights item 1 in the bill of materials"><line class="lead" x1="145.1" y1="-21.6" x2="80.0" y2="136.4"/><polygon class="ah" points="80.0,136.4 80.3,126.8 86.6,129.4"/><circle class="bal" cx="150.0" cy="-33.6" r="13"/><text class="bt" x="150.0" y="-28.6" text-anchor="middle">1</text></g><g class="z zc" data-zone="analysis" tabindex="0" role="button" aria-label="Balloon 2, Analysis workstation: Analysis, part OVD-002. Highlights item 2 in the bill of materials"><line class="lead" x1="-210.0" y1="112.2" x2="-91.5" y2="48.4"/><polygon class="ah" points="-91.5,48.4 -97.8,55.7 -101.0,49.7"/><circle class="bal" cx="-221.5" cy="118.4" r="13"/><text class="bt" x="-221.5" y="123.4" text-anchor="middle">2</text></g><g class="z zc" data-zone="pdm" tabindex="0" role="button" aria-label="Balloon 3, File server: Pdm, part OVD-003. Highlights item 3 in the bill of materials"><line class="lead" x1="350.8" y1="8.9" x2="317.2" y2="67.6"/><polygon class="ah" points="317.2,67.6 318.7,58.1 324.6,61.5"/><circle class="bal" cx="357.2" cy="-2.4" r="13"/><text class="bt" x="357.2" y="2.6" text-anchor="middle">3</text></g><g class="z zc" data-zone="fab" tabindex="0" role="button" aria-label="Balloon 4, CNC machines: Fabrication, part OVD-004. Highlights item 4 in the bill of materials"><line class="lead" x1="-48.1" y1="-139.5" x2="13.3" y2="-69.3"/><polygon class="ah" points="13.3,-69.3 4.9,-73.8 10.0,-78.3"/><circle class="bal" cx="-56.7" cy="-149.3" r="13"/><text class="bt" x="-56.7" y="-144.3" text-anchor="middle">4</text></g><g class="z zc" data-zone="fulfil" tabindex="0" role="button" aria-label="Balloon 5, Shipping dock: Fulfillment, part OVD-005. Highlights item 5 in the bill of materials"><line class="lead" x1="294.4" y1="337.3" x2="186.7" y2="301.4"/><polygon class="ah" points="186.7,301.4 196.3,301.0 194.2,307.5"/><circle class="bal" cx="306.7" cy="341.4" r="13"/><text class="bt" x="306.7" y="346.4" text-anchor="middle">5</text></g><g class="z zc" data-zone="market" tabindex="0" role="button" aria-label="Balloon 6, Showroom counter: Marketplace, part OVD-006. Highlights item 6 in the bill of materials"><line class="lead" x1="-166.3" y1="-104.4" x2="-102.9" y2="4.4"/><polygon class="ah" points="-102.9,4.4 -110.4,-1.7 -104.5,-5.1"/><circle class="bal" cx="-172.9" cy="-115.6" r="13"/><text class="bt" x="-172.9" y="-110.6" text-anchor="middle">6</text></g></svg></div>
+  <div class="hero-copy">
+    <h1 id="h-cover" tabindex="-1">Every machine shop.<br><em>One upload.</em></h1>
+    <p class="lede">Drop in your part and Overdrafter quotes it across the instant quote shops, then finds the real shops behind them. Price, lead time, and who can actually make it, side by side.</p>
+    <div class="ctas"><a class="btn primary" href="https://www.overdrafter.com/?auth=signup">Upload a part</a><a class="btn" href="https://www.overdrafter.com/?auth=signin">Sign in</a></div>
+  </div>
+</div></div><a class="qr" href="https://www.overdrafter.com" aria-label="QR code, opens overdrafter.com"><span class="qr-img"><svg aria-hidden="true" focusable="false" viewBox="0 0 33 33" shape-rendering="crispEdges"><use href="#qr-sym"/></svg></span></a><div class="pager"><button type="button" class="pg" data-go="-1" aria-disabled="true"><span aria-hidden="true">←</span> Previous</button><button type="button" class="pg" data-go="1">Next sheet <span aria-hidden="true">→</span></button></div><div class="tb" role="group" aria-label="Title block"><div class="tf c-tol"><button type="button" class="tfb" data-modal="m-tol" aria-describedby="tt-cover-tol"><span class="tl">UNLESS OTHERWISE SPECIFIED:</span><span class="tsm">DIMENSIONS ARE IN PIXELS<br>TOLERANCES:<br>.X ±.5<br>.XX ±.25<br>ANGULAR ±1°</span></button><span class="tip" role="tooltip" id="tt-cover-tol">General tolerances. Decorative, this page is not a part.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="c-pcol"><div class="tf c-prop"><button type="button" class="tfb" data-modal="m-prop" aria-describedby="tt-cover-prop"><span class="tsm">OVERDRAFTER DESIGN DRAFT<br>FOR REVIEW. NOT RELEASED.</span></button><span class="tip" role="tooltip" id="tt-cover-prop">Draft for review. Not released.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="tf c-projc"><button type="button" class="tfb" data-modal="m-proj" aria-describedby="tt-cover-proj"><span class="tl">THIRD ANGLE PROJECTION</span><svg class="proj" viewBox="0 0 84 30" aria-hidden="true"><circle cx="15" cy="15" r="9"/><circle cx="15" cy="15" r="4"/><line x1="1" y1="15" x2="29" y2="15" class="cl"/><line x1="15" y1="1" x2="15" y2="29" class="cl"/><polygon points="42,9 78,4 78,26 42,21"/><line x1="36" y1="15" x2="82" y2="15" class="cl"/></svg></button><span class="tip" role="tooltip" id="tt-cover-proj">Third angle projection, the North American convention.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="tf c-fin"><button type="button" class="tfb" data-modal="m-theme" aria-describedby="tt-cover-fin"><span class="tsm">THEME, UNLESS<br>OTHERWISE SELECTED:<br>DARK</span></button><span class="tip" role="tooltip" id="tt-cover-fin">Dark by default. Use the Theme button to switch.<span class="tip-more">Click, or tap again, for details</span></span></div></div><div class="c-ncol"><div class="c-names"><div class="nh"><span></span><span>NAME</span><span>DATE</span></div><div class="tf c-nrow"><button type="button" class="tfb" data-modal="m-drawn" aria-describedby="tt-cover-drawn"><span class="nr"><span>DRAWN</span><span>BSW</span><span>10/11/2026</span></span></button><span class="tip" role="tooltip" id="tt-cover-drawn">Drawn by Blaine Wilson, founder.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="tf c-nrow"><button type="button" class="tfb" data-modal="m-signoff" aria-describedby="tt-cover-checked"><span class="nr"><span>CHECKED</span><span><span class="phv">PLACEHOLDER</span></span><span></span></span></button><span class="tip" role="tooltip" id="tt-cover-checked">Placeholder. No checker named yet.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="tf c-nrow"><button type="button" class="tfb" data-modal="m-signoff" aria-describedby="tt-cover-engappr"><span class="nr"><span>ENG APPR.</span><span><span class="phv">PLACEHOLDER</span></span><span></span></span></button><span class="tip" role="tooltip" id="tt-cover-engappr">Placeholder. No engineering approval yet.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="tf c-nrow"><button type="button" class="tfb" data-modal="m-signoff" aria-describedby="tt-cover-qa"><span class="nr"><span>Q.A.</span><span><span class="phv">PLACEHOLDER</span></span><span></span></span></button><span class="tip" role="tooltip" id="tt-cover-qa">Placeholder. No quality sign off yet.<span class="tip-more">Click, or tap again, for details</span></span></div></div><div class="tf c-notes"><button type="button" class="tfb" data-modal="m-notes" aria-describedby="tt-cover-notes"><span class="tl">UNLESS OTHERWISE SPECIFIED:</span><span class="tsm">CHART DATA IS SAMPLE DATA. SHOPS ANONYMIZED.<br>CONTACT FIELDS ARE PLACEHOLDERS.</span></button><span class="tip" role="tooltip" id="tt-cover-notes">Notes that apply to every sheet.<span class="tip-more">Click, or tap again, for details</span></span></div></div><div class="c-main"><div class="r1"><div class="tf c-logo"><button type="button" class="tfb" data-modal="m-company" aria-describedby="tt-cover-logo"><span class="tlogo">OVERDRAFTER</span></button><span class="tip" role="tooltip" id="tt-cover-logo">Every machine shop. One upload.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="tf c-addr tr"><button type="button" class="tfb" data-modal="m-contact" aria-describedby="tt-cover-web"><span class="tsm">OVERDRAFTER.COM<br>CONTACT: <span class="phv">PLACEHOLDER</span></span></button><span class="tip" role="tooltip" id="tt-cover-web">Contact details are placeholders.<span class="tip-more">Click, or tap again, for details</span></span></div></div><div class="tf c-title tr"><button type="button" class="tfb" data-modal="m-sheet-cover" aria-describedby="tt-cover-title"><span class="tl">TITLE:</span><span class="tv big">HOMEPAGE, COVER</span></button><span class="tip" role="tooltip" id="tt-cover-title">This sheet: Cover.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="r3"><div class="tf c-size"><button type="button" class="tfb" data-modal="m-size" aria-describedby="tt-cover-size"><span class="tl">SIZE</span><span class="tv huge">B</span></button><span class="tip" role="tooltip" id="tt-cover-size">Sheet size B.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="tf c-dwg"><button type="button" class="tfb" data-modal="m-dwg" aria-describedby="tt-cover-dwg"><span class="tl">DWG. NO.</span><span class="tv mid">OVD-HOME-0001</span></button><span class="tip" role="tooltip" id="tt-cover-dwg">Drawing number for the homepage.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="tf c-rev tr"><button type="button" class="tfb" data-modal="m-rev" data-rev="01" aria-describedby="tt-cover-rev"><span class="tl">REV</span><span class="tv mid">01</span></button><span class="tip" role="tooltip" id="tt-cover-rev">Rev 01, pre-release.<span class="tip-more">Click, or tap again, for details</span></span></div></div><div class="r4"><div class="tf c-dns"><button type="button" class="tfb" data-modal="m-dns" aria-describedby="tt-cover-dns"><span class="tsm c">DO NOT<br>SCALE</span></button><span class="tip" role="tooltip" id="tt-cover-dns">Do not scale this drawing. It is a web page.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="tf c-wt"><button type="button" class="tfb" data-modal="m-weight" aria-describedby="tt-cover-weight"><span class="tl">WEIGHT:</span><span class="tv ">130 KB</span></button><span class="tip" role="tooltip" id="tt-cover-weight">Weight of this page file.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="tf c-sheet"><button type="button" class="tfb jump-trigger" aria-haspopup="dialog" aria-expanded="false" aria-controls="jump" aria-label="Sheet 1 of 6. Jump to sheet"><span class="tv">SHEET 1 OF 6</span></button></div></div></div></div></div><div class="zl" aria-hidden="true"><span>D</span><span>C</span><span>B</span><span>A</span></div><div class="zt" aria-hidden="true"><span>6</span><span>5</span><span>4</span><span>3</span><span>2</span><span>1</span></div></div></section><section class="sheet s-instant" id="sheet-instant" data-i="1" data-title="Instant quotes" aria-labelledby="h-instant" aria-roledescription="sheet"><div class="frame"><div class="zt" aria-hidden="true"><span>6</span><span>5</span><span>4</span><span>3</span><span>2</span><span>1</span></div><div class="zl" aria-hidden="true"><span>D</span><span>C</span><span>B</span><span>A</span></div><div class="inner"><table class="revs tbl" aria-label="Revisions"><thead><tr><th colspan="4" scope="colgroup">REVISIONS</th></tr><tr><th scope="col">REV.</th><th scope="col">DESCRIPTION</th><th scope="col">ENG.</th><th scope="col">DATE</th></tr></thead><tbody><tr><td class="c">01</td><td class="c"><button type="button" class="rv" data-rev="01" aria-label="Rev 01, PRE-RELEASE, 10/11/2026. Show what changed">PRE-RELEASE</button></td><td class="c">BSW</td><td class="c">10/11/2026</td></tr></tbody></table><div class="field"><div class="g-instant">
+  <div class="copy">
+    <h2 id="h-instant" tabindex="-1">Instant quotes everywhere</h2>
+    <p class="body">We connect to every machine shop that quotes online, and the list keeps growing every week.</p>
+    <div class="ctas"><a class="btn primary" href="https://www.overdrafter.com/?auth=signup">Upload a part</a></div>
+  </div>
+  <div class="ins-col"><div class="dim" aria-hidden="true"><i></i><span>SAMPLE QUOTE FIELD</span><i></i></div>
+  <div class="instrument" role="group" aria-labelledby="ins-title">
+    <div class="ins-bar">
+      <div class="ins-id"><span class="label" id="ins-title">Quote field</span><span class="part">BRACKET_A<span>.STEP</span></span></div>
+      <div class="controls">
+        <div class="seg" role="group" aria-label="Quantity"><button type="button" data-q="1">1 pc</button><button type="button" data-q="10">10</button><button type="button" data-q="25">25</button><button type="button" data-q="100">100</button></div>
+        <div class="seg" role="group" aria-label="Sourcing"><button type="button" data-o="all">All</button><button type="button" data-o="us">US only</button></div>
+      </div>
+    </div>
+    <div class="plot"><svg id="plot" role="img" aria-label="Sample scatter of offers: quoted total against lead time in working days"></svg>
+      <div class="legend" aria-hidden="true"><span><i></i>Instant quote</span><span><i class="lib"></i>Found in the shop library</span></div></div>
+    <div class="readout">
+      <div class="sel" aria-live="polite"><span class="vend" id="r-v"></span><span class="big" id="r-t"></span>
+        <dl class="kv"><dt>Lead</dt><dd id="r-l"></dd><dt>Source</dt><dd id="r-s"></dd><dt>Channel</dt><dd id="r-c"></dd><dt>Origin</dt><dd id="r-o"></dd></dl></div>
+      <div class="list" id="list"></div>
+    </div>
+    <div class="ins-foot"><span class="ph">Sample data. Not live quotes. Shops anonymized.</span></div>
+  </div></div>
+</div></div><a class="qr" href="https://www.overdrafter.com" aria-label="QR code, opens overdrafter.com"><span class="qr-img"><svg aria-hidden="true" focusable="false" viewBox="0 0 33 33" shape-rendering="crispEdges"><use href="#qr-sym"/></svg></span></a><div class="pager"><button type="button" class="pg" data-go="0"><span aria-hidden="true">←</span> Previous</button><button type="button" class="pg" data-go="2">Next sheet <span aria-hidden="true">→</span></button></div><div class="tb" role="group" aria-label="Title block"><div class="tf c-tol"><button type="button" class="tfb" data-modal="m-tol" aria-describedby="tt-instant-tol"><span class="tl">UNLESS OTHERWISE SPECIFIED:</span><span class="tsm">DIMENSIONS ARE IN PIXELS<br>TOLERANCES:<br>.X ±.5<br>.XX ±.25<br>ANGULAR ±1°</span></button><span class="tip" role="tooltip" id="tt-instant-tol">General tolerances. Decorative, this page is not a part.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="c-pcol"><div class="tf c-prop"><button type="button" class="tfb" data-modal="m-prop" aria-describedby="tt-instant-prop"><span class="tsm">OVERDRAFTER DESIGN DRAFT<br>FOR REVIEW. NOT RELEASED.</span></button><span class="tip" role="tooltip" id="tt-instant-prop">Draft for review. Not released.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="tf c-projc"><button type="button" class="tfb" data-modal="m-proj" aria-describedby="tt-instant-proj"><span class="tl">THIRD ANGLE PROJECTION</span><svg class="proj" viewBox="0 0 84 30" aria-hidden="true"><circle cx="15" cy="15" r="9"/><circle cx="15" cy="15" r="4"/><line x1="1" y1="15" x2="29" y2="15" class="cl"/><line x1="15" y1="1" x2="15" y2="29" class="cl"/><polygon points="42,9 78,4 78,26 42,21"/><line x1="36" y1="15" x2="82" y2="15" class="cl"/></svg></button><span class="tip" role="tooltip" id="tt-instant-proj">Third angle projection, the North American convention.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="tf c-fin"><button type="button" class="tfb" data-modal="m-theme" aria-describedby="tt-instant-fin"><span class="tsm">THEME, UNLESS<br>OTHERWISE SELECTED:<br>DARK</span></button><span class="tip" role="tooltip" id="tt-instant-fin">Dark by default. Use the Theme button to switch.<span class="tip-more">Click, or tap again, for details</span></span></div></div><div class="c-ncol"><div class="c-names"><div class="nh"><span></span><span>NAME</span><span>DATE</span></div><div class="tf c-nrow"><button type="button" class="tfb" data-modal="m-drawn" aria-describedby="tt-instant-drawn"><span class="nr"><span>DRAWN</span><span>BSW</span><span>10/11/2026</span></span></button><span class="tip" role="tooltip" id="tt-instant-drawn">Drawn by Blaine Wilson, founder.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="tf c-nrow"><button type="button" class="tfb" data-modal="m-signoff" aria-describedby="tt-instant-checked"><span class="nr"><span>CHECKED</span><span><span class="phv">PLACEHOLDER</span></span><span></span></span></button><span class="tip" role="tooltip" id="tt-instant-checked">Placeholder. No checker named yet.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="tf c-nrow"><button type="button" class="tfb" data-modal="m-signoff" aria-describedby="tt-instant-engappr"><span class="nr"><span>ENG APPR.</span><span><span class="phv">PLACEHOLDER</span></span><span></span></span></button><span class="tip" role="tooltip" id="tt-instant-engappr">Placeholder. No engineering approval yet.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="tf c-nrow"><button type="button" class="tfb" data-modal="m-signoff" aria-describedby="tt-instant-qa"><span class="nr"><span>Q.A.</span><span><span class="phv">PLACEHOLDER</span></span><span></span></span></button><span class="tip" role="tooltip" id="tt-instant-qa">Placeholder. No quality sign off yet.<span class="tip-more">Click, or tap again, for details</span></span></div></div><div class="tf c-notes"><button type="button" class="tfb" data-modal="m-notes" aria-describedby="tt-instant-notes"><span class="tl">UNLESS OTHERWISE SPECIFIED:</span><span class="tsm">CHART DATA IS SAMPLE DATA. SHOPS ANONYMIZED.<br>CONTACT FIELDS ARE PLACEHOLDERS.</span></button><span class="tip" role="tooltip" id="tt-instant-notes">Notes that apply to every sheet.<span class="tip-more">Click, or tap again, for details</span></span></div></div><div class="c-main"><div class="r1"><div class="tf c-logo"><button type="button" class="tfb" data-modal="m-company" aria-describedby="tt-instant-logo"><span class="tlogo">OVERDRAFTER</span></button><span class="tip" role="tooltip" id="tt-instant-logo">Every machine shop. One upload.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="tf c-addr tr"><button type="button" class="tfb" data-modal="m-contact" aria-describedby="tt-instant-web"><span class="tsm">OVERDRAFTER.COM<br>CONTACT: <span class="phv">PLACEHOLDER</span></span></button><span class="tip" role="tooltip" id="tt-instant-web">Contact details are placeholders.<span class="tip-more">Click, or tap again, for details</span></span></div></div><div class="tf c-title tr"><button type="button" class="tfb" data-modal="m-sheet-instant" aria-describedby="tt-instant-title"><span class="tl">TITLE:</span><span class="tv big">HOMEPAGE, INSTANT QUOTES</span></button><span class="tip" role="tooltip" id="tt-instant-title">This sheet: Instant quotes.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="r3"><div class="tf c-size"><button type="button" class="tfb" data-modal="m-size" aria-describedby="tt-instant-size"><span class="tl">SIZE</span><span class="tv huge">B</span></button><span class="tip" role="tooltip" id="tt-instant-size">Sheet size B.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="tf c-dwg"><button type="button" class="tfb" data-modal="m-dwg" aria-describedby="tt-instant-dwg"><span class="tl">DWG. NO.</span><span class="tv mid">OVD-HOME-0001</span></button><span class="tip" role="tooltip" id="tt-instant-dwg">Drawing number for the homepage.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="tf c-rev tr"><button type="button" class="tfb" data-modal="m-rev" data-rev="01" aria-describedby="tt-instant-rev"><span class="tl">REV</span><span class="tv mid">01</span></button><span class="tip" role="tooltip" id="tt-instant-rev">Rev 01, pre-release.<span class="tip-more">Click, or tap again, for details</span></span></div></div><div class="r4"><div class="tf c-dns"><button type="button" class="tfb" data-modal="m-dns" aria-describedby="tt-instant-dns"><span class="tsm c">DO NOT<br>SCALE</span></button><span class="tip" role="tooltip" id="tt-instant-dns">Do not scale this drawing. It is a web page.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="tf c-wt"><button type="button" class="tfb" data-modal="m-weight" aria-describedby="tt-instant-weight"><span class="tl">WEIGHT:</span><span class="tv ">130 KB</span></button><span class="tip" role="tooltip" id="tt-instant-weight">Weight of this page file.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="tf c-sheet"><button type="button" class="tfb jump-trigger" aria-haspopup="dialog" aria-expanded="false" aria-controls="jump" aria-label="Sheet 2 of 6. Jump to sheet"><span class="tv">SHEET 2 OF 6</span></button></div></div></div></div></div><div class="zl" aria-hidden="true"><span>D</span><span>C</span><span>B</span><span>A</span></div><div class="zt" aria-hidden="true"><span>6</span><span>5</span><span>4</span><span>3</span><span>2</span><span>1</span></div></div></section><section class="sheet s-library" id="sheet-library" data-i="2" data-title="Shop library" aria-labelledby="h-library" aria-roledescription="sheet"><div class="frame"><div class="zt" aria-hidden="true"><span>6</span><span>5</span><span>4</span><span>3</span><span>2</span><span>1</span></div><div class="zl" aria-hidden="true"><span>D</span><span>C</span><span>B</span><span>A</span></div><div class="inner"><table class="revs tbl" aria-label="Revisions"><thead><tr><th colspan="4" scope="colgroup">REVISIONS</th></tr><tr><th scope="col">REV.</th><th scope="col">DESCRIPTION</th><th scope="col">ENG.</th><th scope="col">DATE</th></tr></thead><tbody><tr><td class="c">01</td><td class="c"><button type="button" class="rv" data-rev="01" aria-label="Rev 01, PRE-RELEASE, 10/11/2026. Show what changed">PRE-RELEASE</button></td><td class="c">BSW</td><td class="c">10/11/2026</td></tr></tbody></table><div class="field"><div class="g-split">
+  <div class="copy">
+    <h2 id="h-library" tabindex="-1">The shop library</h2>
+    <p class="body">We're mapping every machine shop in existence, what they make, their machines, materials, tolerances, and where they are. When a shop doesn't quote online, we still find it and get you an answer.</p>
+    <div class="ctas"><a class="btn primary" href="https://www.overdrafter.com/?auth=signup">Upload a part</a></div>
+  </div>
+  <figure class="detail" aria-label="What the shop library records for each shop">
+    <div class="dim" aria-hidden="true"><i></i><span>SHOP RECORD</span><i></i></div>
+    <div class="attrs"><div>What they make</div><div>Their machines</div><div>Materials</div><div>Tolerances</div><div class="wide">Where they are</div>
+      <div class="photo" role="img" aria-label="Placeholder for a real shop floor photograph"><span class="ph">Placeholder image</span><span class="pcap">Real shop floor photograph goes here.</span></div></div>
+  </figure>
+</div></div><a class="qr" href="https://www.overdrafter.com" aria-label="QR code, opens overdrafter.com"><span class="qr-img"><svg aria-hidden="true" focusable="false" viewBox="0 0 33 33" shape-rendering="crispEdges"><use href="#qr-sym"/></svg></span></a><div class="pager"><button type="button" class="pg" data-go="1"><span aria-hidden="true">←</span> Previous</button><button type="button" class="pg" data-go="3">Next sheet <span aria-hidden="true">→</span></button></div><div class="tb" role="group" aria-label="Title block"><div class="tf c-tol"><button type="button" class="tfb" data-modal="m-tol" aria-describedby="tt-library-tol"><span class="tl">UNLESS OTHERWISE SPECIFIED:</span><span class="tsm">DIMENSIONS ARE IN PIXELS<br>TOLERANCES:<br>.X ±.5<br>.XX ±.25<br>ANGULAR ±1°</span></button><span class="tip" role="tooltip" id="tt-library-tol">General tolerances. Decorative, this page is not a part.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="c-pcol"><div class="tf c-prop"><button type="button" class="tfb" data-modal="m-prop" aria-describedby="tt-library-prop"><span class="tsm">OVERDRAFTER DESIGN DRAFT<br>FOR REVIEW. NOT RELEASED.</span></button><span class="tip" role="tooltip" id="tt-library-prop">Draft for review. Not released.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="tf c-projc"><button type="button" class="tfb" data-modal="m-proj" aria-describedby="tt-library-proj"><span class="tl">THIRD ANGLE PROJECTION</span><svg class="proj" viewBox="0 0 84 30" aria-hidden="true"><circle cx="15" cy="15" r="9"/><circle cx="15" cy="15" r="4"/><line x1="1" y1="15" x2="29" y2="15" class="cl"/><line x1="15" y1="1" x2="15" y2="29" class="cl"/><polygon points="42,9 78,4 78,26 42,21"/><line x1="36" y1="15" x2="82" y2="15" class="cl"/></svg></button><span class="tip" role="tooltip" id="tt-library-proj">Third angle projection, the North American convention.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="tf c-fin"><button type="button" class="tfb" data-modal="m-theme" aria-describedby="tt-library-fin"><span class="tsm">THEME, UNLESS<br>OTHERWISE SELECTED:<br>DARK</span></button><span class="tip" role="tooltip" id="tt-library-fin">Dark by default. Use the Theme button to switch.<span class="tip-more">Click, or tap again, for details</span></span></div></div><div class="c-ncol"><div class="c-names"><div class="nh"><span></span><span>NAME</span><span>DATE</span></div><div class="tf c-nrow"><button type="button" class="tfb" data-modal="m-drawn" aria-describedby="tt-library-drawn"><span class="nr"><span>DRAWN</span><span>BSW</span><span>10/11/2026</span></span></button><span class="tip" role="tooltip" id="tt-library-drawn">Drawn by Blaine Wilson, founder.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="tf c-nrow"><button type="button" class="tfb" data-modal="m-signoff" aria-describedby="tt-library-checked"><span class="nr"><span>CHECKED</span><span><span class="phv">PLACEHOLDER</span></span><span></span></span></button><span class="tip" role="tooltip" id="tt-library-checked">Placeholder. No checker named yet.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="tf c-nrow"><button type="button" class="tfb" data-modal="m-signoff" aria-describedby="tt-library-engappr"><span class="nr"><span>ENG APPR.</span><span><span class="phv">PLACEHOLDER</span></span><span></span></span></button><span class="tip" role="tooltip" id="tt-library-engappr">Placeholder. No engineering approval yet.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="tf c-nrow"><button type="button" class="tfb" data-modal="m-signoff" aria-describedby="tt-library-qa"><span class="nr"><span>Q.A.</span><span><span class="phv">PLACEHOLDER</span></span><span></span></span></button><span class="tip" role="tooltip" id="tt-library-qa">Placeholder. No quality sign off yet.<span class="tip-more">Click, or tap again, for details</span></span></div></div><div class="tf c-notes"><button type="button" class="tfb" data-modal="m-notes" aria-describedby="tt-library-notes"><span class="tl">UNLESS OTHERWISE SPECIFIED:</span><span class="tsm">CHART DATA IS SAMPLE DATA. SHOPS ANONYMIZED.<br>CONTACT FIELDS ARE PLACEHOLDERS.</span></button><span class="tip" role="tooltip" id="tt-library-notes">Notes that apply to every sheet.<span class="tip-more">Click, or tap again, for details</span></span></div></div><div class="c-main"><div class="r1"><div class="tf c-logo"><button type="button" class="tfb" data-modal="m-company" aria-describedby="tt-library-logo"><span class="tlogo">OVERDRAFTER</span></button><span class="tip" role="tooltip" id="tt-library-logo">Every machine shop. One upload.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="tf c-addr tr"><button type="button" class="tfb" data-modal="m-contact" aria-describedby="tt-library-web"><span class="tsm">OVERDRAFTER.COM<br>CONTACT: <span class="phv">PLACEHOLDER</span></span></button><span class="tip" role="tooltip" id="tt-library-web">Contact details are placeholders.<span class="tip-more">Click, or tap again, for details</span></span></div></div><div class="tf c-title tr"><button type="button" class="tfb" data-modal="m-sheet-library" aria-describedby="tt-library-title"><span class="tl">TITLE:</span><span class="tv big">HOMEPAGE, SHOP LIBRARY</span></button><span class="tip" role="tooltip" id="tt-library-title">This sheet: Shop library.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="r3"><div class="tf c-size"><button type="button" class="tfb" data-modal="m-size" aria-describedby="tt-library-size"><span class="tl">SIZE</span><span class="tv huge">B</span></button><span class="tip" role="tooltip" id="tt-library-size">Sheet size B.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="tf c-dwg"><button type="button" class="tfb" data-modal="m-dwg" aria-describedby="tt-library-dwg"><span class="tl">DWG. NO.</span><span class="tv mid">OVD-HOME-0001</span></button><span class="tip" role="tooltip" id="tt-library-dwg">Drawing number for the homepage.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="tf c-rev tr"><button type="button" class="tfb" data-modal="m-rev" data-rev="01" aria-describedby="tt-library-rev"><span class="tl">REV</span><span class="tv mid">01</span></button><span class="tip" role="tooltip" id="tt-library-rev">Rev 01, pre-release.<span class="tip-more">Click, or tap again, for details</span></span></div></div><div class="r4"><div class="tf c-dns"><button type="button" class="tfb" data-modal="m-dns" aria-describedby="tt-library-dns"><span class="tsm c">DO NOT<br>SCALE</span></button><span class="tip" role="tooltip" id="tt-library-dns">Do not scale this drawing. It is a web page.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="tf c-wt"><button type="button" class="tfb" data-modal="m-weight" aria-describedby="tt-library-weight"><span class="tl">WEIGHT:</span><span class="tv ">130 KB</span></button><span class="tip" role="tooltip" id="tt-library-weight">Weight of this page file.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="tf c-sheet"><button type="button" class="tfb jump-trigger" aria-haspopup="dialog" aria-expanded="false" aria-controls="jump" aria-label="Sheet 3 of 6. Jump to sheet"><span class="tv">SHEET 3 OF 6</span></button></div></div></div></div></div><div class="zl" aria-hidden="true"><span>D</span><span>C</span><span>B</span><span>A</span></div><div class="zt" aria-hidden="true"><span>6</span><span>5</span><span>4</span><span>3</span><span>2</span><span>1</span></div></div></section><section class="sheet s-connect" id="sheet-connect" data-i="3" data-title="Connect" aria-labelledby="h-connect" aria-roledescription="sheet"><div class="frame"><div class="zt" aria-hidden="true"><span>6</span><span>5</span><span>4</span><span>3</span><span>2</span><span>1</span></div><div class="zl" aria-hidden="true"><span>D</span><span>C</span><span>B</span><span>A</span></div><div class="inner"><table class="revs tbl" aria-label="Revisions"><thead><tr><th colspan="4" scope="colgroup">REVISIONS</th></tr><tr><th scope="col">REV.</th><th scope="col">DESCRIPTION</th><th scope="col">ENG.</th><th scope="col">DATE</th></tr></thead><tbody><tr><td class="c">01</td><td class="c"><button type="button" class="rv" data-rev="01" aria-label="Rev 01, PRE-RELEASE, 10/11/2026. Show what changed">PRE-RELEASE</button></td><td class="c">BSW</td><td class="c">10/11/2026</td></tr></tbody></table><div class="field"><div class="g-split">
+  <div class="copy">
+    <h2 id="h-connect" tabindex="-1">Built to connect</h2>
+    <p class="body">Online quoting, email, a phone call, whatever the shop uses, Overdrafter meets them there. You get one clean quote either way.</p>
+    <div class="ctas"><a class="btn primary" href="https://www.overdrafter.com/?auth=signup">Upload a part</a></div>
+  </div>
+  <figure class="detail" aria-label="Every channel resolves to one quote">
+    <div class="dim" aria-hidden="true"><i></i><span>WHATEVER THE SHOP USES</span><i></i></div>
+    <div class="flow">
+      <div class="chan"><div>Online quoting<small>Instant quote shops</small></div><div>Email<small>Shops that answer an RFQ</small></div><div>Phone call<small>Shops that pick up the phone</small></div></div>
+      <div class="join" aria-hidden="true"></div>
+      <div class="out"><b>One clean quote</b><ul><li>Price</li><li>Lead time</li><li>Who can actually make it</li></ul></div>
+    </div>
+  </figure>
+</div></div><a class="qr" href="https://www.overdrafter.com" aria-label="QR code, opens overdrafter.com"><span class="qr-img"><svg aria-hidden="true" focusable="false" viewBox="0 0 33 33" shape-rendering="crispEdges"><use href="#qr-sym"/></svg></span></a><div class="pager"><button type="button" class="pg" data-go="2"><span aria-hidden="true">←</span> Previous</button><button type="button" class="pg" data-go="4">Next sheet <span aria-hidden="true">→</span></button></div><div class="tb" role="group" aria-label="Title block"><div class="tf c-tol"><button type="button" class="tfb" data-modal="m-tol" aria-describedby="tt-connect-tol"><span class="tl">UNLESS OTHERWISE SPECIFIED:</span><span class="tsm">DIMENSIONS ARE IN PIXELS<br>TOLERANCES:<br>.X ±.5<br>.XX ±.25<br>ANGULAR ±1°</span></button><span class="tip" role="tooltip" id="tt-connect-tol">General tolerances. Decorative, this page is not a part.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="c-pcol"><div class="tf c-prop"><button type="button" class="tfb" data-modal="m-prop" aria-describedby="tt-connect-prop"><span class="tsm">OVERDRAFTER DESIGN DRAFT<br>FOR REVIEW. NOT RELEASED.</span></button><span class="tip" role="tooltip" id="tt-connect-prop">Draft for review. Not released.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="tf c-projc"><button type="button" class="tfb" data-modal="m-proj" aria-describedby="tt-connect-proj"><span class="tl">THIRD ANGLE PROJECTION</span><svg class="proj" viewBox="0 0 84 30" aria-hidden="true"><circle cx="15" cy="15" r="9"/><circle cx="15" cy="15" r="4"/><line x1="1" y1="15" x2="29" y2="15" class="cl"/><line x1="15" y1="1" x2="15" y2="29" class="cl"/><polygon points="42,9 78,4 78,26 42,21"/><line x1="36" y1="15" x2="82" y2="15" class="cl"/></svg></button><span class="tip" role="tooltip" id="tt-connect-proj">Third angle projection, the North American convention.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="tf c-fin"><button type="button" class="tfb" data-modal="m-theme" aria-describedby="tt-connect-fin"><span class="tsm">THEME, UNLESS<br>OTHERWISE SELECTED:<br>DARK</span></button><span class="tip" role="tooltip" id="tt-connect-fin">Dark by default. Use the Theme button to switch.<span class="tip-more">Click, or tap again, for details</span></span></div></div><div class="c-ncol"><div class="c-names"><div class="nh"><span></span><span>NAME</span><span>DATE</span></div><div class="tf c-nrow"><button type="button" class="tfb" data-modal="m-drawn" aria-describedby="tt-connect-drawn"><span class="nr"><span>DRAWN</span><span>BSW</span><span>10/11/2026</span></span></button><span class="tip" role="tooltip" id="tt-connect-drawn">Drawn by Blaine Wilson, founder.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="tf c-nrow"><button type="button" class="tfb" data-modal="m-signoff" aria-describedby="tt-connect-checked"><span class="nr"><span>CHECKED</span><span><span class="phv">PLACEHOLDER</span></span><span></span></span></button><span class="tip" role="tooltip" id="tt-connect-checked">Placeholder. No checker named yet.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="tf c-nrow"><button type="button" class="tfb" data-modal="m-signoff" aria-describedby="tt-connect-engappr"><span class="nr"><span>ENG APPR.</span><span><span class="phv">PLACEHOLDER</span></span><span></span></span></button><span class="tip" role="tooltip" id="tt-connect-engappr">Placeholder. No engineering approval yet.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="tf c-nrow"><button type="button" class="tfb" data-modal="m-signoff" aria-describedby="tt-connect-qa"><span class="nr"><span>Q.A.</span><span><span class="phv">PLACEHOLDER</span></span><span></span></span></button><span class="tip" role="tooltip" id="tt-connect-qa">Placeholder. No quality sign off yet.<span class="tip-more">Click, or tap again, for details</span></span></div></div><div class="tf c-notes"><button type="button" class="tfb" data-modal="m-notes" aria-describedby="tt-connect-notes"><span class="tl">UNLESS OTHERWISE SPECIFIED:</span><span class="tsm">CHART DATA IS SAMPLE DATA. SHOPS ANONYMIZED.<br>CONTACT FIELDS ARE PLACEHOLDERS.</span></button><span class="tip" role="tooltip" id="tt-connect-notes">Notes that apply to every sheet.<span class="tip-more">Click, or tap again, for details</span></span></div></div><div class="c-main"><div class="r1"><div class="tf c-logo"><button type="button" class="tfb" data-modal="m-company" aria-describedby="tt-connect-logo"><span class="tlogo">OVERDRAFTER</span></button><span class="tip" role="tooltip" id="tt-connect-logo">Every machine shop. One upload.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="tf c-addr tr"><button type="button" class="tfb" data-modal="m-contact" aria-describedby="tt-connect-web"><span class="tsm">OVERDRAFTER.COM<br>CONTACT: <span class="phv">PLACEHOLDER</span></span></button><span class="tip" role="tooltip" id="tt-connect-web">Contact details are placeholders.<span class="tip-more">Click, or tap again, for details</span></span></div></div><div class="tf c-title tr"><button type="button" class="tfb" data-modal="m-sheet-connect" aria-describedby="tt-connect-title"><span class="tl">TITLE:</span><span class="tv big">HOMEPAGE, CONNECT</span></button><span class="tip" role="tooltip" id="tt-connect-title">This sheet: Connect.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="r3"><div class="tf c-size"><button type="button" class="tfb" data-modal="m-size" aria-describedby="tt-connect-size"><span class="tl">SIZE</span><span class="tv huge">B</span></button><span class="tip" role="tooltip" id="tt-connect-size">Sheet size B.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="tf c-dwg"><button type="button" class="tfb" data-modal="m-dwg" aria-describedby="tt-connect-dwg"><span class="tl">DWG. NO.</span><span class="tv mid">OVD-HOME-0001</span></button><span class="tip" role="tooltip" id="tt-connect-dwg">Drawing number for the homepage.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="tf c-rev tr"><button type="button" class="tfb" data-modal="m-rev" data-rev="01" aria-describedby="tt-connect-rev"><span class="tl">REV</span><span class="tv mid">01</span></button><span class="tip" role="tooltip" id="tt-connect-rev">Rev 01, pre-release.<span class="tip-more">Click, or tap again, for details</span></span></div></div><div class="r4"><div class="tf c-dns"><button type="button" class="tfb" data-modal="m-dns" aria-describedby="tt-connect-dns"><span class="tsm c">DO NOT<br>SCALE</span></button><span class="tip" role="tooltip" id="tt-connect-dns">Do not scale this drawing. It is a web page.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="tf c-wt"><button type="button" class="tfb" data-modal="m-weight" aria-describedby="tt-connect-weight"><span class="tl">WEIGHT:</span><span class="tv ">130 KB</span></button><span class="tip" role="tooltip" id="tt-connect-weight">Weight of this page file.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="tf c-sheet"><button type="button" class="tfb jump-trigger" aria-haspopup="dialog" aria-expanded="false" aria-controls="jump" aria-label="Sheet 4 of 6. Jump to sheet"><span class="tv">SHEET 4 OF 6</span></button></div></div></div></div></div><div class="zl" aria-hidden="true"><span>D</span><span>C</span><span>B</span><span>A</span></div><div class="zt" aria-hidden="true"><span>6</span><span>5</span><span>4</span><span>3</span><span>2</span><span>1</span></div></div></section><section class="sheet s-results" id="sheet-results" data-i="4" data-title="Results" aria-labelledby="h-results" aria-roledescription="sheet"><div class="frame"><div class="zt" aria-hidden="true"><span>6</span><span>5</span><span>4</span><span>3</span><span>2</span><span>1</span></div><div class="zl" aria-hidden="true"><span>D</span><span>C</span><span>B</span><span>A</span></div><div class="inner"><table class="revs tbl" aria-label="Revisions"><thead><tr><th colspan="4" scope="colgroup">REVISIONS</th></tr><tr><th scope="col">REV.</th><th scope="col">DESCRIPTION</th><th scope="col">ENG.</th><th scope="col">DATE</th></tr></thead><tbody><tr><td class="c">01</td><td class="c"><button type="button" class="rv" data-rev="01" aria-label="Rev 01, PRE-RELEASE, 10/11/2026. Show what changed">PRE-RELEASE</button></td><td class="c">BSW</td><td class="c">10/11/2026</td></tr></tbody></table><div class="field"><div class="g-results">
+  <h2 id="h-results" tabindex="-1" class="words"><span>Quoted.</span> <span>Guided.</span> <span>On hold.</span></h2>
+  <div class="dim" aria-hidden="true"><i></i><span>EVERY PART</span><i></i></div>
+  <p class="body big">Every part gets a straight answer, even when the answer is that we need a human.</p>
+  <div class="ctas"><a class="btn primary" href="https://www.overdrafter.com/?auth=signup">Upload a part</a></div>
+</div></div><a class="qr" href="https://www.overdrafter.com" aria-label="QR code, opens overdrafter.com"><span class="qr-img"><svg aria-hidden="true" focusable="false" viewBox="0 0 33 33" shape-rendering="crispEdges"><use href="#qr-sym"/></svg></span></a><div class="pager"><button type="button" class="pg" data-go="3"><span aria-hidden="true">←</span> Previous</button><button type="button" class="pg" data-go="5">Next sheet <span aria-hidden="true">→</span></button></div><div class="tb" role="group" aria-label="Title block"><div class="tf c-tol"><button type="button" class="tfb" data-modal="m-tol" aria-describedby="tt-results-tol"><span class="tl">UNLESS OTHERWISE SPECIFIED:</span><span class="tsm">DIMENSIONS ARE IN PIXELS<br>TOLERANCES:<br>.X ±.5<br>.XX ±.25<br>ANGULAR ±1°</span></button><span class="tip" role="tooltip" id="tt-results-tol">General tolerances. Decorative, this page is not a part.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="c-pcol"><div class="tf c-prop"><button type="button" class="tfb" data-modal="m-prop" aria-describedby="tt-results-prop"><span class="tsm">OVERDRAFTER DESIGN DRAFT<br>FOR REVIEW. NOT RELEASED.</span></button><span class="tip" role="tooltip" id="tt-results-prop">Draft for review. Not released.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="tf c-projc"><button type="button" class="tfb" data-modal="m-proj" aria-describedby="tt-results-proj"><span class="tl">THIRD ANGLE PROJECTION</span><svg class="proj" viewBox="0 0 84 30" aria-hidden="true"><circle cx="15" cy="15" r="9"/><circle cx="15" cy="15" r="4"/><line x1="1" y1="15" x2="29" y2="15" class="cl"/><line x1="15" y1="1" x2="15" y2="29" class="cl"/><polygon points="42,9 78,4 78,26 42,21"/><line x1="36" y1="15" x2="82" y2="15" class="cl"/></svg></button><span class="tip" role="tooltip" id="tt-results-proj">Third angle projection, the North American convention.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="tf c-fin"><button type="button" class="tfb" data-modal="m-theme" aria-describedby="tt-results-fin"><span class="tsm">THEME, UNLESS<br>OTHERWISE SELECTED:<br>DARK</span></button><span class="tip" role="tooltip" id="tt-results-fin">Dark by default. Use the Theme button to switch.<span class="tip-more">Click, or tap again, for details</span></span></div></div><div class="c-ncol"><div class="c-names"><div class="nh"><span></span><span>NAME</span><span>DATE</span></div><div class="tf c-nrow"><button type="button" class="tfb" data-modal="m-drawn" aria-describedby="tt-results-drawn"><span class="nr"><span>DRAWN</span><span>BSW</span><span>10/11/2026</span></span></button><span class="tip" role="tooltip" id="tt-results-drawn">Drawn by Blaine Wilson, founder.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="tf c-nrow"><button type="button" class="tfb" data-modal="m-signoff" aria-describedby="tt-results-checked"><span class="nr"><span>CHECKED</span><span><span class="phv">PLACEHOLDER</span></span><span></span></span></button><span class="tip" role="tooltip" id="tt-results-checked">Placeholder. No checker named yet.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="tf c-nrow"><button type="button" class="tfb" data-modal="m-signoff" aria-describedby="tt-results-engappr"><span class="nr"><span>ENG APPR.</span><span><span class="phv">PLACEHOLDER</span></span><span></span></span></button><span class="tip" role="tooltip" id="tt-results-engappr">Placeholder. No engineering approval yet.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="tf c-nrow"><button type="button" class="tfb" data-modal="m-signoff" aria-describedby="tt-results-qa"><span class="nr"><span>Q.A.</span><span><span class="phv">PLACEHOLDER</span></span><span></span></span></button><span class="tip" role="tooltip" id="tt-results-qa">Placeholder. No quality sign off yet.<span class="tip-more">Click, or tap again, for details</span></span></div></div><div class="tf c-notes"><button type="button" class="tfb" data-modal="m-notes" aria-describedby="tt-results-notes"><span class="tl">UNLESS OTHERWISE SPECIFIED:</span><span class="tsm">CHART DATA IS SAMPLE DATA. SHOPS ANONYMIZED.<br>CONTACT FIELDS ARE PLACEHOLDERS.</span></button><span class="tip" role="tooltip" id="tt-results-notes">Notes that apply to every sheet.<span class="tip-more">Click, or tap again, for details</span></span></div></div><div class="c-main"><div class="r1"><div class="tf c-logo"><button type="button" class="tfb" data-modal="m-company" aria-describedby="tt-results-logo"><span class="tlogo">OVERDRAFTER</span></button><span class="tip" role="tooltip" id="tt-results-logo">Every machine shop. One upload.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="tf c-addr tr"><button type="button" class="tfb" data-modal="m-contact" aria-describedby="tt-results-web"><span class="tsm">OVERDRAFTER.COM<br>CONTACT: <span class="phv">PLACEHOLDER</span></span></button><span class="tip" role="tooltip" id="tt-results-web">Contact details are placeholders.<span class="tip-more">Click, or tap again, for details</span></span></div></div><div class="tf c-title tr"><button type="button" class="tfb" data-modal="m-sheet-results" aria-describedby="tt-results-title"><span class="tl">TITLE:</span><span class="tv big">HOMEPAGE, RESULTS</span></button><span class="tip" role="tooltip" id="tt-results-title">This sheet: Results.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="r3"><div class="tf c-size"><button type="button" class="tfb" data-modal="m-size" aria-describedby="tt-results-size"><span class="tl">SIZE</span><span class="tv huge">B</span></button><span class="tip" role="tooltip" id="tt-results-size">Sheet size B.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="tf c-dwg"><button type="button" class="tfb" data-modal="m-dwg" aria-describedby="tt-results-dwg"><span class="tl">DWG. NO.</span><span class="tv mid">OVD-HOME-0001</span></button><span class="tip" role="tooltip" id="tt-results-dwg">Drawing number for the homepage.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="tf c-rev tr"><button type="button" class="tfb" data-modal="m-rev" data-rev="01" aria-describedby="tt-results-rev"><span class="tl">REV</span><span class="tv mid">01</span></button><span class="tip" role="tooltip" id="tt-results-rev">Rev 01, pre-release.<span class="tip-more">Click, or tap again, for details</span></span></div></div><div class="r4"><div class="tf c-dns"><button type="button" class="tfb" data-modal="m-dns" aria-describedby="tt-results-dns"><span class="tsm c">DO NOT<br>SCALE</span></button><span class="tip" role="tooltip" id="tt-results-dns">Do not scale this drawing. It is a web page.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="tf c-wt"><button type="button" class="tfb" data-modal="m-weight" aria-describedby="tt-results-weight"><span class="tl">WEIGHT:</span><span class="tv ">130 KB</span></button><span class="tip" role="tooltip" id="tt-results-weight">Weight of this page file.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="tf c-sheet"><button type="button" class="tfb jump-trigger" aria-haspopup="dialog" aria-expanded="false" aria-controls="jump" aria-label="Sheet 5 of 6. Jump to sheet"><span class="tv">SHEET 5 OF 6</span></button></div></div></div></div></div><div class="zl" aria-hidden="true"><span>D</span><span>C</span><span>B</span><span>A</span></div><div class="zt" aria-hidden="true"><span>6</span><span>5</span><span>4</span><span>3</span><span>2</span><span>1</span></div></div></section><section class="sheet s-founder" id="sheet-founder" data-i="5" data-title="Founder note" aria-labelledby="h-founder" aria-roledescription="sheet"><div class="frame"><div class="zt" aria-hidden="true"><span>6</span><span>5</span><span>4</span><span>3</span><span>2</span><span>1</span></div><div class="zl" aria-hidden="true"><span>D</span><span>C</span><span>B</span><span>A</span></div><div class="inner"><table class="revs tbl" aria-label="Revisions"><thead><tr><th colspan="4" scope="colgroup">REVISIONS</th></tr><tr><th scope="col">REV.</th><th scope="col">DESCRIPTION</th><th scope="col">ENG.</th><th scope="col">DATE</th></tr></thead><tbody><tr><td class="c">01</td><td class="c"><button type="button" class="rv" data-rev="01" aria-label="Rev 01, PRE-RELEASE, 10/11/2026. Show what changed">PRE-RELEASE</button></td><td class="c">BSW</td><td class="c">10/11/2026</td></tr></tbody></table><div class="field"><div class="g-founder">
+  <h2 id="h-founder" tabindex="-1" class="label fl">Founder note</h2>
+  <blockquote id="founder-note">I've been an optomechanical engineer for fifteen years, and getting a part quoted still means a dozen tabs and a week of email. Overdrafter is the tool I always wanted. <span class="sig">Blaine.</span></blockquote>
+  <p class="draftnote"><span class="ph">Draft copy pending founder approval</span></p>
+  <div class="ctas"><a class="btn primary" href="https://www.overdrafter.com/?auth=signup">Upload a part</a><a class="btn" href="https://www.overdrafter.com/?auth=signup">Join the founding beta</a><a class="btn" href="https://www.overdrafter.com/?auth=signin">Sign in</a></div>
+</div></div><a class="qr" href="https://www.overdrafter.com" aria-label="QR code, opens overdrafter.com"><span class="qr-img"><svg aria-hidden="true" focusable="false" viewBox="0 0 33 33" shape-rendering="crispEdges"><use href="#qr-sym"/></svg></span></a><div class="pager"><button type="button" class="pg" data-go="4"><span aria-hidden="true">←</span> Previous</button><button type="button" class="pg" data-go="6" aria-disabled="true">Next sheet <span aria-hidden="true">→</span></button></div><div class="tb" role="group" aria-label="Title block"><div class="tf c-tol"><button type="button" class="tfb" data-modal="m-tol" aria-describedby="tt-founder-tol"><span class="tl">UNLESS OTHERWISE SPECIFIED:</span><span class="tsm">DIMENSIONS ARE IN PIXELS<br>TOLERANCES:<br>.X ±.5<br>.XX ±.25<br>ANGULAR ±1°</span></button><span class="tip" role="tooltip" id="tt-founder-tol">General tolerances. Decorative, this page is not a part.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="c-pcol"><div class="tf c-prop"><button type="button" class="tfb" data-modal="m-prop" aria-describedby="tt-founder-prop"><span class="tsm">OVERDRAFTER DESIGN DRAFT<br>FOR REVIEW. NOT RELEASED.</span></button><span class="tip" role="tooltip" id="tt-founder-prop">Draft for review. Not released.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="tf c-projc"><button type="button" class="tfb" data-modal="m-proj" aria-describedby="tt-founder-proj"><span class="tl">THIRD ANGLE PROJECTION</span><svg class="proj" viewBox="0 0 84 30" aria-hidden="true"><circle cx="15" cy="15" r="9"/><circle cx="15" cy="15" r="4"/><line x1="1" y1="15" x2="29" y2="15" class="cl"/><line x1="15" y1="1" x2="15" y2="29" class="cl"/><polygon points="42,9 78,4 78,26 42,21"/><line x1="36" y1="15" x2="82" y2="15" class="cl"/></svg></button><span class="tip" role="tooltip" id="tt-founder-proj">Third angle projection, the North American convention.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="tf c-fin"><button type="button" class="tfb" data-modal="m-theme" aria-describedby="tt-founder-fin"><span class="tsm">THEME, UNLESS<br>OTHERWISE SELECTED:<br>DARK</span></button><span class="tip" role="tooltip" id="tt-founder-fin">Dark by default. Use the Theme button to switch.<span class="tip-more">Click, or tap again, for details</span></span></div></div><div class="c-ncol"><div class="c-names"><div class="nh"><span></span><span>NAME</span><span>DATE</span></div><div class="tf c-nrow"><button type="button" class="tfb" data-modal="m-drawn" aria-describedby="tt-founder-drawn"><span class="nr"><span>DRAWN</span><span>BSW</span><span>10/11/2026</span></span></button><span class="tip" role="tooltip" id="tt-founder-drawn">Drawn by Blaine Wilson, founder.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="tf c-nrow"><button type="button" class="tfb" data-modal="m-signoff" aria-describedby="tt-founder-checked"><span class="nr"><span>CHECKED</span><span><span class="phv">PLACEHOLDER</span></span><span></span></span></button><span class="tip" role="tooltip" id="tt-founder-checked">Placeholder. No checker named yet.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="tf c-nrow"><button type="button" class="tfb" data-modal="m-signoff" aria-describedby="tt-founder-engappr"><span class="nr"><span>ENG APPR.</span><span><span class="phv">PLACEHOLDER</span></span><span></span></span></button><span class="tip" role="tooltip" id="tt-founder-engappr">Placeholder. No engineering approval yet.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="tf c-nrow"><button type="button" class="tfb" data-modal="m-signoff" aria-describedby="tt-founder-qa"><span class="nr"><span>Q.A.</span><span><span class="phv">PLACEHOLDER</span></span><span></span></span></button><span class="tip" role="tooltip" id="tt-founder-qa">Placeholder. No quality sign off yet.<span class="tip-more">Click, or tap again, for details</span></span></div></div><div class="tf c-notes"><button type="button" class="tfb" data-modal="m-notes" aria-describedby="tt-founder-notes"><span class="tl">UNLESS OTHERWISE SPECIFIED:</span><span class="tsm">CHART DATA IS SAMPLE DATA. SHOPS ANONYMIZED.<br>CONTACT FIELDS ARE PLACEHOLDERS.</span></button><span class="tip" role="tooltip" id="tt-founder-notes">Notes that apply to every sheet.<span class="tip-more">Click, or tap again, for details</span></span></div></div><div class="c-main"><div class="r1"><div class="tf c-logo"><button type="button" class="tfb" data-modal="m-company" aria-describedby="tt-founder-logo"><span class="tlogo">OVERDRAFTER</span></button><span class="tip" role="tooltip" id="tt-founder-logo">Every machine shop. One upload.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="tf c-addr tr"><button type="button" class="tfb" data-modal="m-contact" aria-describedby="tt-founder-web"><span class="tsm">OVERDRAFTER.COM<br>CONTACT: <span class="phv">PLACEHOLDER</span></span></button><span class="tip" role="tooltip" id="tt-founder-web">Contact details are placeholders.<span class="tip-more">Click, or tap again, for details</span></span></div></div><div class="tf c-title tr"><button type="button" class="tfb" data-modal="m-sheet-founder" aria-describedby="tt-founder-title"><span class="tl">TITLE:</span><span class="tv big">HOMEPAGE, FOUNDER NOTE</span></button><span class="tip" role="tooltip" id="tt-founder-title">This sheet: Founder note.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="r3"><div class="tf c-size"><button type="button" class="tfb" data-modal="m-size" aria-describedby="tt-founder-size"><span class="tl">SIZE</span><span class="tv huge">B</span></button><span class="tip" role="tooltip" id="tt-founder-size">Sheet size B.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="tf c-dwg"><button type="button" class="tfb" data-modal="m-dwg" aria-describedby="tt-founder-dwg"><span class="tl">DWG. NO.</span><span class="tv mid">OVD-HOME-0001</span></button><span class="tip" role="tooltip" id="tt-founder-dwg">Drawing number for the homepage.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="tf c-rev tr"><button type="button" class="tfb" data-modal="m-rev" data-rev="01" aria-describedby="tt-founder-rev"><span class="tl">REV</span><span class="tv mid">01</span></button><span class="tip" role="tooltip" id="tt-founder-rev">Rev 01, pre-release.<span class="tip-more">Click, or tap again, for details</span></span></div></div><div class="r4"><div class="tf c-dns"><button type="button" class="tfb" data-modal="m-dns" aria-describedby="tt-founder-dns"><span class="tsm c">DO NOT<br>SCALE</span></button><span class="tip" role="tooltip" id="tt-founder-dns">Do not scale this drawing. It is a web page.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="tf c-wt"><button type="button" class="tfb" data-modal="m-weight" aria-describedby="tt-founder-weight"><span class="tl">WEIGHT:</span><span class="tv ">130 KB</span></button><span class="tip" role="tooltip" id="tt-founder-weight">Weight of this page file.<span class="tip-more">Click, or tap again, for details</span></span></div><div class="tf c-sheet"><button type="button" class="tfb jump-trigger" aria-haspopup="dialog" aria-expanded="false" aria-controls="jump" aria-label="Sheet 6 of 6. Jump to sheet"><span class="tv">SHEET 6 OF 6</span></button></div></div></div></div></div><div class="zl" aria-hidden="true"><span>D</span><span>C</span><span>B</span><span>A</span></div><div class="zt" aria-hidden="true"><span>6</span><span>5</span><span>4</span><span>3</span><span>2</span><span>1</span></div></div></section>
+</main>
+<button type="button" class="mcount jump-trigger" aria-haspopup="dialog" aria-expanded="false" aria-controls="jump" aria-label="Sheet 1 of 6. Jump to sheet">Sheet <b class="sheet-n">1 of 6</b></button>
+<div class="jump" id="jump" role="dialog" aria-label="Jump to sheet"><h2>Jump to sheet</h2><ul><li><button type="button" data-goto="0"><span class="jn">1</span><span>Cover</span></button></li><li><button type="button" data-goto="1"><span class="jn">2</span><span>Instant quotes</span></button></li><li><button type="button" data-goto="2"><span class="jn">3</span><span>Shop library</span></button></li><li><button type="button" data-goto="3"><span class="jn">4</span><span>Connect</span></button></li><li><button type="button" data-goto="4"><span class="jn">5</span><span>Results</span></button></li><li><button type="button" data-goto="5"><span class="jn">6</span><span>Founder note</span></button></li></ul><a class="flatbtn jbeta" href="https://www.overdrafter.com/?auth=signup">Join the founding beta</a><button type="button" class="flatbtn" id="flat">Show all sheets on one page</button></div>
+<p class="sr" aria-live="polite" id="live"></p>
+<dialog class="md" id="dlg" aria-labelledby="dlg-t">
+  <div class="md-head"><span class="label" id="dlg-k">Title block</span><button type="button" class="btn sm" id="dlg-x">Close</button></div>
+  <div id="dlg-b"></div>
+</dialog>
+<template id="m-company"><h2 class="mt">Overdrafter</h2><p>Every machine shop. One upload.</p><p>Upload a part once. Overdrafter quotes it across the instant quote shops and the shop library, side by side.</p><p class="mrow"><a class="btn primary" href="https://www.overdrafter.com/?auth=signup">Upload a part</a><a class="btn" href="https://www.overdrafter.com">Open overdrafter.com</a></p></template><template id="m-contact"><h2 class="mt">Contact</h2><dl class="mkv"><dt>Web</dt><dd>overdrafter.com</dd><dt>Phone</dt><dd><span class="ph">Placeholder</span> Not provided</dd><dt>Email</dt><dd><span class="ph">Placeholder</span> Not provided</dd><dt>Address</dt><dd><span class="ph">Placeholder</span> Not provided</dd></dl><p class="muted">These fields need real details from Blaine before release.</p></template><template id="m-drawn"><h2 class="mt">Drawn by BSW</h2><p>Blaine Wilson, founder of Overdrafter. Optomechanical engineer.</p><p class="mrow"><button type="button" class="btn" data-goto="5">Read the founder note</button></p></template><template id="m-signoff"><h2 class="mt">Sign off</h2><dl class="mkv"><dt>Checked</dt><dd><span class="ph">Placeholder</span></dd><dt>Eng appr.</dt><dd><span class="ph">Placeholder</span></dd><dt>Q.A.</dt><dd><span class="ph">Placeholder</span></dd></dl><p class="muted">Only the drawn by field is filled. The other sign offs are placeholders until real people are named.</p></template><template id="m-size"><h2 class="mt">Size B</h2><p>Drawn on a B size sheet layout. On screen it fits your window.</p></template><template id="m-dwg"><h2 class="mt">OVD-HOME-0001</h2><p>The drawing number for the Overdrafter homepage. Each sheet of the set carries it.</p></template><template id="m-weight"><h2 class="mt">Weight</h2><p>This page weighs 130 KB as a single file, before fonts.</p></template><template id="m-dns"><h2 class="mt">Do not scale</h2><p>Read the copy, not the ruler. This drawing is a web page.</p></template><template id="m-tol"><h2 class="mt">Tolerances</h2><p>General tolerances, in the convention of a drawing sheet. They are decorative. This page is not a part.</p></template><template id="m-prop"><h2 class="mt">Draft</h2><p>Overdrafter design draft, issued for review. Not released.</p></template><template id="m-proj"><h2 class="mt">Third angle projection</h2><p>The projection symbol used on North American drawings. Views are placed where they are seen from.</p></template><template id="m-theme"><h2 class="mt">Theme</h2><p>Dark by default. The Theme button in the top bar switches to light and remembers your choice.</p></template><template id="m-notes"><h2 class="mt">Notes</h2><ul class="mlist"><li>Chart data is sample data. Shops are anonymized.</li><li>Contact fields are placeholders.</li><li>Sign off fields other than drawn by are placeholders.</li></ul></template><template id="m-sheet-cover"><h2 class="mt">Cover</h2><p>The cover sheet: an isometric view of a shop and office, with the bill of materials.</p><p class="mrow"><button type="button" class="btn" data-goto="0">Go to this sheet</button></p></template><template id="m-sheet-instant"><h2 class="mt">Instant quotes</h2><p>How Overdrafter reaches every machine shop that quotes online, with a sample quote field.</p><p class="mrow"><button type="button" class="btn" data-goto="1">Go to this sheet</button></p></template><template id="m-sheet-library"><h2 class="mt">Shop library</h2><p>The shop library: every machine shop, including the ones that do not quote online.</p><p class="mrow"><button type="button" class="btn" data-goto="2">Go to this sheet</button></p></template><template id="m-sheet-connect"><h2 class="mt">Connect</h2><p>How Overdrafter reaches each shop through the channel it already uses.</p><p class="mrow"><button type="button" class="btn" data-goto="3">Go to this sheet</button></p></template><template id="m-sheet-results"><h2 class="mt">Results</h2><p>The three outcomes every part can get.</p><p class="mrow"><button type="button" class="btn" data-goto="4">Go to this sheet</button></p></template><template id="m-sheet-founder"><h2 class="mt">Founder note</h2><p>A note from the founder, and where to join the founding beta.</p><p class="mrow"><button type="button" class="btn" data-goto="5">Go to this sheet</button></p></template>
+<script type="application/json" id="changelog">{"note": "Homepage design changelog that drives the REVISIONS table. Oldest first. Fields: rev, label (shown as DESCRIPTION), eng (initials), date (MM/DD/YYYY), desc, changes. Add a rev by appending an entry, then run: python3 src/build.py", "revs": [{"rev": "01", "label": "PRE-RELEASE", "eng": "BSW", "date": "10/11/2026", "desc": "Print set homepage, first issue", "changes": ["Homepage drawn as a print set of six sheets in the style of a SolidWorks drawing: zone border, revisions table, full title block, dimension lines and a drafting typeface.", "Cover sheet shows an isometric shop with a bill of materials of six lines, each linked to a balloon and a zone in the drawing.", "Sheets flip one at a time, peeling from the top right corner like a clipped print set.", "Quote field on the Instant quotes sheet. Sample data, shops anonymized.", "Provider names, provider counts and route framing removed. Copy speaks to every machine shop.", "Title block fields give quick facts on hover, focus or tap, and open details on click.", "Scannable QR code to overdrafter.com in the bottom left corner, generated locally.", "Revisions table added. This entry is the first."]}]}</script>
+<script>
+(function(){
+const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)];
+const RM=matchMedia('(prefers-reduced-motion: reduce)');
+const root=document.documentElement,sheets=$$('.sheet'),M=sheets.length,live=$('#live'),dlg=$('#dlg'),jump=$('#jump');
+let lastPointer='mouse';
+document.addEventListener('pointerdown',e=>{lastPointer=e.pointerType||'mouse'},true);
+document.addEventListener('keydown',()=>{lastPointer='keyboard'},true);
+
+/* Theme: persisted, transitions suppressed during the swap (better-ui) */
+const themeBtn=$('#theme');
+const syncTheme=()=>themeBtn.setAttribute('aria-label','Switch to '+(root.dataset.theme==='light'?'dark':'light')+' theme');
+themeBtn.addEventListener('click',()=>{
+  const t=root.dataset.theme==='light'?'dark':'light';
+  const s=document.createElement('style');s.textContent='*,*::before,*::after{transition:none!important}';document.head.append(s);
+  root.dataset.theme=t;try{localStorage.setItem('od-theme',t)}catch(e){}
+  void document.body.offsetHeight;requestAnimationFrame(()=>requestAnimationFrame(()=>s.remove()));syncTheme();
+});
+syncTheme();
+
+/* ---------- Magnetic sheets ----------
+   Wheel, trackpad, swipe and paging keys flip exactly one sheet. One flip per gesture: wheel events closer
+   than 220ms apart belong to one gesture, so trackpad inertia cannot flip twice. A sheet taller than the
+   screen scrolls inside itself first and flips only from its top or bottom edge. Input inside the modal,
+   the jump menu or form fields is never intercepted. Reduced motion swaps instantly. */
+let cur=0,busy=false,flat=false;
+const PEEL=[
+  {transform:'none',opacity:1},
+  {transform:'translate3d(4%,-6%,0) rotate3d(-1,1,0,-38deg)',opacity:1,offset:.55},
+  {transform:'translate3d(14%,-22%,0) rotate3d(-1,1,0,-64deg)',opacity:1,offset:.88},
+  {transform:'translate3d(18%,-28%,0) rotate3d(-1,1,0,-70deg)',opacity:0}];
+const PEEL_MS=480,PEEL_EASE='cubic-bezier(0.23,1,0.32,1)';
+function setInert(){sheets.forEach((s,k)=>{s.inert=!flat&&k!==cur})}
+function syncCounter(){
+  $$('.mcount .sheet-n').forEach(n=>n.textContent=(cur+1)+' of '+M);
+  $('.mcount').setAttribute('aria-label','Sheet '+(cur+1)+' of '+M+'. Jump to sheet');
+  $$('#jump [data-goto]').forEach(b=>b.setAttribute('aria-current',String(+b.dataset.goto===cur)));
+}
+function land(i,opts){
+  cur=i;sheets.forEach((s,k)=>{s.classList.toggle('cur',k===i);s.classList.remove('under','over','peel')});
+  setInert();syncCounter();
+  const s=sheets[i];if(!flat)s.scrollTop=opts&&opts.fromBelow?s.scrollHeight:0;
+  const h=s.querySelector('h1,h2[id^=h-]');if(h&&!(opts&&opts.noFocus))h.focus({preventScroll:true});
+  live.textContent='Sheet '+(i+1)+' of '+M+', '+s.dataset.title;
+}
+function go(i,opts){
+  if(i<0||i>=M||i===cur&&!flat)return;
+  closeJump(false);if(openTip)hideTip(openTip);
+  if(flat){cur=i;syncCounter();sheets[i].scrollIntoView({behavior:RM.matches?'instant':'smooth'});const h=sheets[i].querySelector('h1,h2[id^=h-]');h&&h.focus({preventScroll:true});live.textContent='Sheet '+(i+1)+' of '+M+', '+sheets[i].dataset.title;return}
+  if(busy)return;
+  const from=sheets[cur],to=sheets[i],fwd=i>cur;
+  if(RM.matches||(opts&&opts.instant)){land(i,{fromBelow:!fwd&&opts&&opts.edge,noFocus:opts&&opts.noFocus});return}
+  busy=true;
+  let a;
+  if(fwd){to.classList.add('under');from.classList.add('peel');a=from.animate(PEEL,{duration:PEEL_MS,easing:PEEL_EASE,fill:'forwards'})}
+  else{to.classList.add('over','peel');a=to.animate(PEEL.slice().reverse().map((k,n,arr)=>Object.assign({},k,k.offset!=null?{offset:1-k.offset}:{})),{duration:PEEL_MS,easing:PEEL_EASE,fill:'forwards'})}
+  a.onfinish=()=>{land(i,{fromBelow:!fwd&&opts&&opts.edge});a.cancel();busy=false};
+}
+window.OD={go:(i,o)=>go(i,o),get cur(){return cur}};
+const blocked=t=>dlg.open||jump.classList.contains('open')||(t&&t.closest&&t.closest('input,textarea,select,[contenteditable=""],[contenteditable=true],dialog,.jump'));
+const canScroll=(el,dir)=>dir>0?el.scrollTop+el.clientHeight<el.scrollHeight-1:el.scrollTop>0;
+let lastWheel=0,consumed=false,acc=0,startEdge=false;
+addEventListener('wheel',e=>{
+  if(flat||e.ctrlKey||blocked(e.target))return;
+  const now=performance.now(),dy=Math.abs(e.deltaY)>=Math.abs(e.deltaX)?e.deltaY:0,s=sheets[cur];
+  if(now-lastWheel>220){consumed=busy;acc=0;startEdge=!canScroll(s,Math.sign(dy)||1)}
+  lastWheel=now;
+  if(!dy)return;
+  if(!consumed&&!startEdge&&canScroll(s,Math.sign(dy)))return;           // native scroll inside a tall sheet
+  e.preventDefault();
+  if(consumed||busy||!startEdge){consumed=consumed||busy;return}          // reached the edge mid gesture: wait for a fresh gesture
+  acc+=dy;if(Math.abs(acc)>28){consumed=true;go(cur+(acc>0?1:-1),{edge:true})}
+},{passive:false});
+let ty=null,tx=0,tTop=false,tBottom=false;
+addEventListener('touchstart',e=>{if(flat||blocked(e.target)||e.touches.length>1){ty=null;return}const s=sheets[cur];ty=e.touches[0].clientY;tx=e.touches[0].clientX;tTop=!canScroll(s,-1);tBottom=!canScroll(s,1)},{passive:true});
+addEventListener('touchend',e=>{
+  if(ty==null||busy)return;const t=e.changedTouches[0],dy=ty-t.clientY,dx=tx-t.clientX;ty=null;
+  if(Math.abs(dy)<56||Math.abs(dy)<Math.abs(dx)*1.2)return;
+  if(dy>0&&tBottom)go(cur+1,{edge:true});else if(dy<0&&tTop)go(cur-1,{edge:true});
+},{passive:true});
+document.addEventListener('keydown',e=>{
+  if(flat||e.altKey||e.ctrlKey||e.metaKey||blocked(e.target))return;
+  const k=e.key,isSpace=k===' '||k==='Spacebar';
+  const onControl=e.target.closest&&e.target.closest('button,a,[role=button],summary,.seg');
+  if(isSpace&&onControl)return;                                           // Space activates the focused control
+  if((k==='ArrowDown'||k==='ArrowUp')&&e.target.closest&&e.target.closest('#plot'))return;
+  let dir=0;
+  if(k==='PageDown'||k==='ArrowDown'||(isSpace&&!e.shiftKey))dir=1;
+  else if(k==='PageUp'||k==='ArrowUp'||(isSpace&&e.shiftKey))dir=-1;
+  else if(k==='Home'){e.preventDefault();if(!e.repeat)go(0,{});return}
+  else if(k==='End'){e.preventDefault();if(!e.repeat)go(M-1,{});return}
+  if(!dir)return;
+  e.preventDefault();
+  const s=sheets[cur];
+  if(canScroll(s,dir)){s.scrollBy({top:dir*(k.startsWith('Arrow')?64:s.clientHeight*.85),behavior:RM.matches?'instant':'smooth'});return}
+  if(!e.repeat&&!busy)go(cur+dir,{edge:true});
+});
+/* One page view: every sheet in normal document flow, for find in page, reading mode and long reads */
+const flatBtn=$('#flat');let io=null;
+flatBtn.addEventListener('click',()=>{
+  flat=!flat;root.classList.toggle('flat',flat);flatBtn.textContent=flat?'Back to the print set':'Show all sheets on one page';
+  const at=cur;closeJump(false);setInert();
+  if(flat){sheets.forEach(s=>s.classList.add('cur'));io=new IntersectionObserver(es=>es.forEach(en=>{if(en.isIntersecting){cur=+en.target.dataset.i;syncCounter()}}),{rootMargin:'-50% 0px -50% 0px'});sheets.forEach(s=>io.observe(s));sheets[at].scrollIntoView({behavior:'instant'})}
+  else{io&&io.disconnect();scrollTo(0,0);land(at,{})}
+});
+document.addEventListener('click',e=>{
+  const pg=e.target.closest('.pg');if(pg){if(pg.getAttribute('aria-disabled')!=='true')go(+pg.dataset.go,{});return}
+  const gt=e.target.closest('[data-goto]');if(gt){const i=+gt.dataset.goto;closeJump(false);if(dlg.open)dlg.close();go(i,{})}
+},true);
+
+/* Jump menu */
+let jumpFrom=null;
+function openJump(trigger,kbd){
+  jumpFrom=trigger;const r=trigger.getBoundingClientRect();
+  jump.style.right=Math.max(8,innerWidth-r.right)+'px';jump.style.bottom=Math.max(8,innerHeight-r.top+6)+'px';
+  jump.classList.toggle('kbd',kbd);jump.classList.add('open');
+  $$('.jump-trigger').forEach(t=>t.setAttribute('aria-expanded',String(t===trigger)));
+  ($('#jump [aria-current=true]')||$('#jump [data-goto]')).focus();
+}
+function closeJump(restore){
+  if(!jump.classList.contains('open'))return;
+  jump.classList.remove('open');$$('.jump-trigger').forEach(t=>t.setAttribute('aria-expanded','false'));
+  if(restore&&jumpFrom)jumpFrom.focus();
+}
+$$('.jump-trigger').forEach(t=>t.addEventListener('click',e=>{e.stopPropagation();
+  if(jump.classList.contains('open')&&jumpFrom===t)closeJump(true);else openJump(t,lastPointer==='keyboard')}));
+jump.addEventListener('click',e=>e.stopPropagation());
+document.addEventListener('click',()=>closeJump(false));
+jump.addEventListener('keydown',e=>{
+  const items=$$('#jump [data-goto], #flat'),k=items.indexOf(document.activeElement);
+  if(e.key==='ArrowDown'){e.preventDefault();items[(k+1)%items.length].focus()}
+  else if(e.key==='ArrowUp'){e.preventDefault();items[(k-1+items.length)%items.length].focus()}
+  else if(e.key==='Home'){e.preventDefault();items[0].focus()}
+  else if(e.key==='End'){e.preventDefault();items[items.length-1].focus()}
+  else if(e.key==='Escape'){e.preventDefault();closeJump(true)}
+  else if(e.key==='Tab'){closeJump(false)}
+});
+
+/* Tooltips: hover (delay, then instant on neighbours), keyboard focus, first tap. Escape dismisses. */
+let tipTimer,lastTipClose=0,openTip=null;
+function showTip(tf,instant){clearTimeout(tipTimer);if(openTip&&openTip!==tf)hideTip(openTip);tf.classList.toggle('instant',!!instant);tf.classList.add('show');openTip=tf;
+  const t=tf.querySelector('.tip');t.style.translate='';const r=t.getBoundingClientRect();let dx=0;if(r.right>innerWidth-8)dx=innerWidth-8-r.right;if(r.left+dx<8)dx=8-r.left;if(dx)t.style.translate=dx+'px 0'}
+function hideTip(tf){if(!tf)return;tf.classList.remove('show','instant');if(openTip===tf){openTip=null;lastTipClose=Date.now()}}
+$$('.tf').forEach(tf=>{
+  if(!tf.querySelector('.tip'))return;
+  tf.addEventListener('pointerenter',e=>{if(e.pointerType!=='mouse')return;clearTimeout(tipTimer);
+    const warm=openTip||Date.now()-lastTipClose<400;if(warm)showTip(tf,true);else tipTimer=setTimeout(()=>showTip(tf,false),350)});
+  tf.addEventListener('pointerleave',e=>{if(e.pointerType!=='mouse')return;clearTimeout(tipTimer);hideTip(tf)});
+  tf.addEventListener('focusin',()=>{if(lastPointer==='keyboard')showTip(tf,true)});
+  tf.addEventListener('focusout',e=>{if(!tf.contains(e.relatedTarget))hideTip(tf)});
+});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&openTip)hideTip(openTip)});
+document.addEventListener('pointerdown',e=>{if(openTip&&!openTip.contains(e.target))hideTip(openTip)});
+
+/* Modals: native dialog */
+const dlgB=$('#dlg-b'),dlgK=$('#dlg-k');let dlgFrom=null;
+const CL=JSON.parse($('#changelog').textContent);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function revHTML(rev){
+  const r=CL.revs.find(x=>x.rev===rev)||CL.revs[CL.revs.length-1];
+  return '<h2 class="mt">Rev '+esc(r.rev)+' '+esc(r.label)+'</h2><dl class="mkv"><dt>Date</dt><dd>'+esc(r.date)+'</dd><dt>Eng.</dt><dd>'+esc(r.eng)+'</dd><dt>Summary</dt><dd>'+esc(r.desc)+'</dd></dl>'
+   +'<p class="label">What changed</p><ul class="mlist">'+r.changes.map(c=>'<li>'+esc(c)+'</li>').join('')+'</ul><p class="muted">Homepage design changelog. Not released.</p>';
+}
+function openModal(html,kind,from,kbd){
+  dlgFrom=from;dlgB.innerHTML=html;dlgK.textContent=kind;
+  const t=dlgB.querySelector('.mt');if(t)t.id='dlg-t';
+  dlg.classList.toggle('kbd',kbd);dlg.classList.remove('in');dlg.showModal();
+  if(kbd)dlg.classList.add('in');else requestAnimationFrame(()=>dlg.classList.add('in'));
+  $('#dlg-x').focus();
+}
+dlg.addEventListener('close',()=>{dlg.classList.remove('in');if(openTip)hideTip(openTip);if(dlgFrom&&document.contains(dlgFrom))dlgFrom.focus({preventScroll:true})});
+$('#dlg-x').addEventListener('click',()=>dlg.close());
+dlg.addEventListener('click',e=>{if(e.target===dlg)dlg.close()});
+$$('.tfb[data-modal]').forEach(b=>b.addEventListener('click',()=>{
+  const tf=b.closest('.tf');
+  if(lastPointer==='touch'&&!tf.classList.contains('show')){showTip(tf,true);return}
+  hideTip(tf);const kbd=lastPointer==='keyboard';
+  if(b.dataset.rev){openModal(revHTML(b.dataset.rev),'Revision',b,kbd);return}
+  openModal(document.getElementById(b.dataset.modal).innerHTML,'Title block',b,kbd);
+}));
+$$('.rv').forEach(b=>b.addEventListener('click',()=>openModal(revHTML(b.dataset.rev),'Revision',b,lastPointer==='keyboard')));
+
+/* Two way zones: BOM line and drawing zone highlight each other */
+const iso=$('.iso'),rows=$$('.bom tr[data-zone]');let pinned=null;
+function hl(z){
+  iso.classList.toggle('has-hl',!!z);
+  $$('.iso .z').forEach(g=>g.classList.toggle('on',!!z&&g.dataset.zone===z));
+  rows.forEach(r=>r.classList.toggle('hl',!!z&&r.dataset.zone===z));
+}
+const toggle=z=>{pinned=pinned===z?null:z;hl(pinned)};
+$$('.iso .z').forEach(g=>{const z=g.dataset.zone;
+  g.addEventListener('pointerenter',e=>{if(e.pointerType==='mouse')hl(z)});
+  g.addEventListener('pointerleave',e=>{if(e.pointerType==='mouse')hl(pinned)});
+  g.addEventListener('click',()=>toggle(z));
+});
+$$('.iso .zc').forEach(g=>{const z=g.dataset.zone;
+  g.addEventListener('focus',()=>hl(z));g.addEventListener('blur',()=>hl(pinned));
+  g.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();e.stopPropagation();toggle(z)}});
+});
+rows.forEach(r=>{const z=r.dataset.zone;
+  r.addEventListener('pointerenter',e=>{if(e.pointerType==='mouse')hl(z)});
+  r.addEventListener('pointerleave',e=>{if(e.pointerType==='mouse')hl(pinned)});
+});
+$$('.bom-b').forEach(b=>{const z=b.dataset.zone;
+  b.addEventListener('focus',()=>hl(z));b.addEventListener('blur',()=>hl(pinned));
+  b.addEventListener('click',()=>toggle(z));
+});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&pinned){pinned=null;hl(null)}});
+
+land(0,{noFocus:true});live.textContent='';
+})();
+
+/* Quote field. SAMPLE DATA: not live quotes, shops anonymized.
+   [shop, unit price at qty 25, lead days, origin, source, channel] */
+(function(){
+const BASE=[["Shop A",17.8,16,"US","Instant","Online quote"],["Shop A",22.4,9,"US","Instant","Online quote"],["Shop B",19.5,12,"Global","Instant","Online quote"],["Shop C",21.0,9,"US","Library","Email"],["Shop D",22.3,11,"Unknown","Instant","Online quote"],["Shop E",24.4,7,"US","Library","Phone call"],["Shop F",27.6,5,"Global","Instant","Online quote"],["Shop G",18.9,19,"US","Library","Email"]];
+const QF={1:4.6,10:1.45,25:1,100:.72},LF={1:-2,10:-1,25:0,100:2};
+let q=25,o='all',sel=3;const svg=document.getElementById('plot'),NS='http://www.w3.org/2000/svg';
+const money=n=>'$'+n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const data=()=>BASE.map((b,i)=>({i,v:b[0],unit:b[1]*QF[q],lead:Math.max(3,b[2]+LF[q]),o:b[3],src:b[4],ch:b[5],tot:b[1]*QF[q]*q})).filter(d=>o==='all'||d.o==='US');
+const nice=m=>{const p=Math.pow(10,Math.floor(Math.log10(m)));return [1,2,2.5,5,10].find(s=>s*p*4>=m)*p};
+function el(t,a,x){const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);if(x!=null)e.textContent=x;svg.appendChild(e);return e}
+function draw(){
+  const D=data();if(!D.find(d=>d.i===sel))sel=D.length?D.reduce((a,b)=>a.tot<b.tot?a:b).i:-1;
+  const W=Math.max(300,svg.parentNode.clientWidth-12),fld=svg.closest('.field'),fcs=getComputedStyle(fld),avail=fld.clientHeight-parseFloat(fcs.paddingTop)-parseFloat(fcs.paddingBottom)-200,H=Math.round(innerWidth<761?W*.85:Math.min(W*.56,Math.max(200,avail)));
+  svg.setAttribute('viewBox',`0 0 ${W} ${H}`);svg.innerHTML='';
+  const L=W<560?52:66,R=18,T=26,B=40,st=nice(Math.max(...D.map(d=>d.tot),1)*1.1),ymax=st*4;
+  const X=d=>L+(d/22)*(W-L-R),Y=v=>H-B-(v/ymax)*(H-B-T);
+  for(let d=0;d<=20;d+=5){el('line',{class:'grid',x1:X(d),x2:X(d),y1:T,y2:H-B});el('text',{class:'tick',x:X(d),y:H-B+18,'text-anchor':'middle'},d+'d')}
+  for(let k=0;k<=4;k++){const v=st*k;el('line',{class:'grid',x1:L,x2:W-R,y1:Y(v),y2:Y(v)});el('text',{class:'tick',x:L-8,y:Y(v)+4,'text-anchor':'end'},'$'+(v>=1000?(v/1000)+'k':v))}
+  el('text',{class:'axis',x:W-R,y:H-4,'text-anchor':'end'},'WORKING DAYS →');
+  el('text',{class:'axis',x:L,y:15},'↑ QUOTED TOTAL, QTY '+q);
+  const s=D.find(d=>d.i===sel);
+  if(s){el('line',{class:'guide',x1:X(s.lead),x2:X(s.lead),y1:Y(s.tot)+10,y2:H-B});el('line',{class:'guide',x1:L,x2:X(s.lead)-10,y1:Y(s.tot),y2:Y(s.tot)})}
+  D.forEach(d=>{const on=d.i===sel;
+    const h=el('circle',{class:'hit',cx:X(d.lead),cy:Y(d.tot),r:16,tabindex:0,role:'button','aria-pressed':String(on),'aria-label':`${d.v}, ${d.ch}, ${money(d.tot)}, ${d.lead} working days`});
+    el('circle',{class:'pt'+(d.src==='Library'?' lib':'')+(on?' on':''),cx:X(d.lead),cy:Y(d.tot),r:on?9:6.5,'pointer-events':'none'});
+    h.onclick=()=>pick(d.i,false);h.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();e.stopPropagation();pick(d.i,true)}}});
+  const g=id=>document.getElementById(id);
+  if(s){g('r-v').textContent=s.v.toUpperCase();g('r-t').textContent=money(s.tot);g('r-l').textContent=s.lead+' working days';g('r-s').textContent=s.src==='Library'?'Shop library':'Instant quote';g('r-c').textContent=s.ch;g('r-o').textContent=s.o}
+  else['r-v','r-t','r-l','r-s','r-c','r-o'].forEach(i=>g(i).textContent='');
+  g('list').innerHTML=D.length?D.slice().sort((a,b)=>a.tot-b.tot).map(d=>`<button type="button" class="${d.i===sel?'on':''}" data-i="${d.i}" aria-pressed="${d.i===sel}"><span>${d.v}, ${d.ch}</span><span>${money(d.tot)}</span><span>${d.lead}d</span></button>`).join(''):'<p class="empty">No US origin offers in this sample.</p>';
+  g('list').querySelectorAll('button').forEach(b=>b.onclick=()=>pick(+b.dataset.i,false));
+}
+function pick(i,kbd){sel=i;draw();if(kbd){const h=[...svg.querySelectorAll('.hit')].find(c=>c.getAttribute('aria-pressed')==='true');h&&h.focus()}}
+function segs(attr,get,set){const bs=[...document.querySelectorAll(`[data-${attr}]`)];const sync=()=>bs.forEach(b=>b.setAttribute('aria-pressed',String(b.dataset[attr]===String(get()))));bs.forEach(b=>b.onclick=()=>{set(b.dataset[attr]);sync();draw()});sync()}
+segs('q',()=>q,v=>q=+v);segs('o',()=>o,v=>o=v);
+let lw=0;new ResizeObserver(en=>{const w=Math.round(en[0].contentRect.width);if(w&&w!==lw){lw=w;draw()}}).observe(svg.parentNode);draw();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OverDrafter — Part to Quote</title>
+<meta name="description" content="Upload one machined part. OverDrafter reviews the requirements, requests quotes from certified providers, and lays the real offers side by side. Invitation-only Founding Beta.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Direction A — Title Block. Tokens follow docs/DESIGN.md verbatim. */
+:root{
+  --bg:#F2EFE8;--surface:#FBF9F4;--surface-2:#E7E0D4;--text:#1C1B19;--muted:#6B665C;
+  --hairline:#D8D2C4;--accent:#C2410C;--ink:#1F2E3A;
+  --display:"Archivo",sans-serif;--body:"IBM Plex Sans",sans-serif;--mono:"IBM Plex Mono",ui-monospace,monospace;
+  --pad:clamp(16px,4vw,48px);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font:400 16px/1.55 var(--body);font-variant-numeric:tabular-nums lining-nums;-webkit-font-smoothing:antialiased}
+a{color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.mono{font-family:var(--mono)}
+.label{font:500 11px/1.3 var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.ph{font:500 10px/1.3 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--accent);border:1px dashed var(--accent);padding:2px 6px;border-radius:2px;display:inline-block}
+
+/* Drawing sheet frame with zone ticks */
+.sheet{margin:12px;border:1px solid var(--text);position:relative;min-height:calc(100vh - 24px)}
+.zones{display:grid;grid-template-columns:repeat(8,1fr);border-bottom:1px solid var(--hairline)}
+.zones span{font:500 10px var(--mono);color:var(--muted);text-align:center;padding:3px 0;border-left:1px solid var(--hairline)}
+.zones span:first-child{border-left:0}
+.zones.bottom{border-bottom:0;border-top:1px solid var(--hairline)}
+
+/* Command strip */
+.strip{display:flex;align-items:center;justify-content:space-between;gap:16px;height:52px;padding:0 var(--pad);border-bottom:1px solid var(--text)}
+.wordmark{font:800 20px/1 var(--display);font-stretch:70%;letter-spacing:-.01em;text-transform:uppercase;text-decoration:none}
+.strip nav{display:flex;gap:28px}
+.strip nav a{font:500 11px var(--mono);letter-spacing:.1em;text-transform:uppercase;text-decoration:none;color:var(--muted)}
+.strip nav a:hover{color:var(--text)}
+.strip .actions{display:flex;gap:8px}
+.btn{display:inline-flex;align-items:center;gap:10px;font:500 12px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;text-decoration:none;padding:12px 16px;border:1px solid var(--text);border-radius:2px;background:transparent;cursor:pointer;color:var(--text);transition:background .15s ease-out}
+.btn:hover{background:var(--surface-2)}
+.btn.primary{border-color:var(--accent);color:var(--accent)}
+.btn.primary:hover{background:var(--surface)}
+.btn.sm{padding:9px 12px;font-size:11px}
+
+/* Hero */
+.hero{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);border-bottom:1px solid var(--text)}
+.hero-copy{padding:56px var(--pad) 48px;border-right:1px solid var(--text);display:flex;flex-direction:column;gap:28px}
+h1{font:800 clamp(56px,8.4vw,132px)/.86 var(--display);font-stretch:62%;letter-spacing:-.015em;text-transform:uppercase}
+h1 em{font-style:normal;color:var(--accent)}
+.lede{font-size:clamp(17px,1.4vw,20px);max-width:34em;color:var(--text)}
+.lede b{font-weight:500}
+.hero-ctas{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.fine{font:400 12px/1.5 var(--mono);color:var(--muted);max-width:52em}
+
+/* Intake card (prototype) */
+.intake{display:flex;flex-direction:column;background:var(--surface)}
+.intake-head{display:flex;justify-content:space-between;align-items:center;padding:12px 20px;border-bottom:1px solid var(--hairline)}
+.drop{flex:1;margin:20px;border:1px dashed var(--muted);border-radius:2px;display:flex;flex-direction:column;justify-content:center;gap:14px;padding:28px;min-height:250px;cursor:pointer;transition:background .15s ease-out,border-color .15s}
+.drop:hover,.drop.over{background:var(--surface-2);border-color:var(--text)}
+.drop .fname{font:600 clamp(26px,3.1vw,46px)/1.05 var(--mono);letter-spacing:-.01em;word-break:break-all}
+.drop .fname .ext{color:var(--muted)}
+.drop .iso{width:min(260px,70%);height:auto;overflow:visible;margin:10px 0 18px}
+.drop .hint{font-size:14px;color:var(--muted)}
+.checks{border-top:1px solid var(--hairline)}
+.checks div{display:grid;grid-template-columns:120px 1fr auto;gap:12px;padding:10px 20px;border-bottom:1px solid var(--hairline);font:400 12px var(--mono)}
+.checks div:last-child{border-bottom:0}
+.checks .k{color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-size:11px}
+.checks .st{font-weight:600;letter-spacing:.08em}
+.checks .st.flag{color:var(--accent)}
+
+/* Section scaffolding */
+section{border-bottom:1px solid var(--text)}
+.sec-head{display:grid;grid-template-columns:200px 1fr;gap:24px;padding:40px var(--pad) 28px;align-items:baseline}
+h2{font:800 clamp(34px,4.2vw,60px)/.95 var(--display);font-stretch:68%;text-transform:uppercase;letter-spacing:-.01em;max-width:18ch}
+.sec-sub{grid-column:2;max-width:46em;color:var(--muted);margin-top:14px}
+
+/* Revision-table style process */
+table{border-collapse:collapse;width:100%}
+.proc th,.proc td{border-top:1px solid var(--hairline);text-align:left;vertical-align:top;padding:18px 16px}
+.proc th{font:500 11px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding-top:10px;padding-bottom:10px}
+.proc td:first-child,.proc th:first-child{padding-left:var(--pad);width:200px}
+.proc td:last-child,.proc th:last-child{padding-right:var(--pad)}
+.proc .op{font:600 13px var(--mono)}
+.proc .name{font:800 26px/1 var(--display);font-stretch:70%;text-transform:uppercase}
+.proc .out{font:400 12px var(--mono);color:var(--muted)}
+.proc tr:hover td{background:var(--surface-2)}
+
+/* Comparison */
+.compare{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);border-top:1px solid var(--hairline)}
+.chart{padding:20px var(--pad) 24px;border-right:1px solid var(--hairline);background:var(--surface)}
+.chart svg{width:100%;height:auto;display:block}
+.chart .cap{display:flex;justify-content:space-between;gap:12px;margin-bottom:10px;flex-wrap:wrap}
+.vtable{background:var(--surface)}
+.vtable th{font:500 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);text-align:left;padding:12px 16px;border-bottom:1px solid var(--hairline)}
+.vtable td{font:400 13px var(--mono);padding:11px 16px;border-bottom:1px solid var(--hairline);cursor:pointer}
+.vtable td.r,.vtable th.r{text-align:right}
+.vtable tr:hover td{background:var(--surface-2)}
+.vtable tr.sel td:first-child{color:var(--accent);font-weight:600}
+.selbox{padding:16px;border-top:1px solid var(--text);display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.selbox .big{font:500 22px var(--mono)}
+.dot{cursor:pointer;transition:r .12s ease-out}
+
+/* Envelope spec sheet */
+.spec{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--hairline)}
+.spec>div{padding:20px var(--pad) 24px 16px;border-left:1px solid var(--hairline);min-height:150px;display:flex;flex-direction:column;justify-content:space-between;gap:16px}
+.spec>div:first-child{border-left:0;padding-left:var(--pad)}
+.spec .v{font:600 clamp(18px,1.8vw,26px)/1.15 var(--mono)}
+.notyet{padding:14px var(--pad);border-top:1px solid var(--hairline);font:400 12px/1.6 var(--mono);color:var(--muted)}
+
+/* Providers */
+.prov{display:grid;grid-template-columns:repeat(7,1fr);border-top:1px solid var(--hairline)}
+.prov div{padding:22px 14px;border-left:1px solid var(--hairline);font:600 15px var(--mono);display:flex;flex-direction:column;gap:22px}
+.prov div:first-child{border-left:0;padding-left:var(--pad)}
+.prov small{font:500 10px var(--mono);letter-spacing:.1em;color:var(--muted)}
+
+/* Title block footer */
+.tb{display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1.3fr}
+.tb>div{border-left:1px solid var(--text);padding:14px 16px;display:flex;flex-direction:column;gap:8px;min-height:96px}
+.tb>div:first-child{border-left:0;padding-left:var(--pad)}
+.tb .v{font:600 14px var(--mono)}
+.tb .wm{font:800 36px/1 var(--display);font-stretch:62%;text-transform:uppercase}
+.cta-band{display:grid;grid-template-columns:1fr auto;gap:24px;align-items:end;padding:48px var(--pad)}
+
+/* Responsive */
+@media (max-width:1080px){
+  .prov{grid-template-columns:repeat(4,1fr)}
+  .prov div:nth-child(5){border-left:0;padding-left:var(--pad)}
+  .prov div:nth-child(n+5){border-top:1px solid var(--hairline)}
+  .spec{grid-template-columns:1fr 1fr}
+  .spec>div:nth-child(3){border-left:0;padding-left:var(--pad)}
+  .spec>div:nth-child(n+3){border-top:1px solid var(--hairline)}
+}
+@media (max-width:860px){
+  .strip nav{display:none}
+  .hero{grid-template-columns:1fr}
+  .hero-copy{border-right:0;border-bottom:1px solid var(--text);padding-top:36px}
+  .compare{grid-template-columns:1fr}
+  .chart{border-right:0;border-bottom:1px solid var(--hairline)}
+  .sec-head{grid-template-columns:1fr;gap:10px;padding-top:32px}
+  .sec-sub{grid-column:1}
+  .proc thead{display:none}
+  .proc tr{display:grid;grid-template-columns:64px 1fr;border-top:1px solid var(--hairline);padding:16px var(--pad)}
+  .proc td{border:0;padding:0!important;width:auto!important}
+  .proc td:nth-child(1){grid-row:span 3}
+  .proc td:nth-child(3){margin-top:6px;font-size:15px}
+  .proc td:nth-child(4){margin-top:8px}
+  .tb{grid-template-columns:1fr 1fr}
+  .tb>div{border-top:1px solid var(--text)}
+  .tb>div:nth-child(odd){border-left:0;padding-left:var(--pad)}
+  .tb>div:first-child{grid-column:span 2;border-top:0}
+  .tb>div:nth-child(2n+2){border-left:1px solid var(--text);padding-left:16px}
+  .cta-band{grid-template-columns:1fr}
+  .zones span:nth-child(n+5){display:none}
+  .zones{grid-template-columns:repeat(4,1fr)}
+}
+@media (max-width:520px){
+  .sheet{margin:6px}
+  .strip .actions .btn:not(.primary){display:none}
+  .prov{grid-template-columns:1fr 1fr}
+  .prov div{border-top:1px solid var(--hairline);padding-left:16px!important;border-left:1px solid var(--hairline)!important}
+  .prov div:nth-child(odd){border-left:0!important;padding-left:var(--pad)!important}
+  .prov div:nth-child(-n+2){border-top:0}
+  .spec{grid-template-columns:1fr}
+  .spec>div{border-left:0!important;padding-left:var(--pad)!important;border-top:1px solid var(--hairline);min-height:0}
+  .spec>div:first-child{border-top:0}
+  .checks div{grid-template-columns:96px 1fr auto}
+  .drop{min-height:200px;margin:14px;padding:20px}
+  .selbox{grid-template-columns:1fr 1fr}
+  .vtable .hide-s{display:none}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+<div class="sheet">
+  <div class="zones" aria-hidden="true"><span>8</span><span>7</span><span>6</span><span>5</span><span>4</span><span>3</span><span>2</span><span>1</span></div>
+
+  <header class="strip">
+    <a class="wordmark" href="#top" aria-label="OverDrafter home">OverDrafter</a>
+    <nav aria-label="Primary"><a href="#process">Process</a><a href="#compare">Compare</a><a href="#envelope">Envelope</a><a href="#providers">Providers</a></nav>
+    <div class="actions"><a class="btn sm" href="#signin">Sign in</a><a class="btn sm primary" href="#beta">Request access</a></div>
+  </header>
+
+  <main id="top">
+  <div class="hero">
+    <div class="hero-copy">
+      <span class="label">Rev 1.0 · Part to Quote · Invitation-only Founding Beta</span>
+      <h1>Part in.<br>Real quotes<br><em>out.</em></h1>
+      <p class="lede">Upload one machined part. OverDrafter reviews its requirements, asks the certified providers in a <b>seven-provider portfolio</b> — including Xometry and Fictiv — and puts every real offer on one price-versus-lead-time field. Guidance is never dressed up as a quote.</p>
+      <div class="hero-ctas">
+        <a class="btn primary" href="#beta">Request Founding Beta access →</a>
+        <a class="btn" href="#process">See the process</a>
+      </div>
+      <p class="fine">Free during the Founding Beta. Automatic quote collection is enabled per enrolled organization. 1.0 scope: CNC-milled 6061-T6 aluminum, STEP/STP, non-ITAR.</p>
+    </div>
+
+    <div class="intake" aria-labelledby="intake-title">
+      <div class="intake-head"><span class="label" id="intake-title">Intake · Try the envelope check</span><span class="ph">Prototype · file stays in browser</span></div>
+      <label class="drop" id="drop" tabindex="0">
+        <svg class="iso" viewBox="0 0 260 150" aria-hidden="true"><g fill="none" stroke="#1C1B19" stroke-width="1.2" stroke-linejoin="round">
+<path d="M20 95 L120 140 L240 85 L140 40 Z"/><path d="M20 95 L20 105 L120 150 L240 95 L240 85"/><path d="M120 140 L120 150"/>
+<path d="M140 40 L140 -10 L160 -19 L160 31"/><path d="M140 -10 L240 35 L240 85"/><path d="M160 -19 L260 26 L260 76 L240 85"/><path d="M240 35 L260 26"/>
+<ellipse cx="85" cy="105" rx="14" ry="6.5"/><ellipse cx="165" cy="95" rx="14" ry="6.5"/><ellipse cx="200" cy="40" rx="6.5" ry="12" transform="rotate(-24 200 40)"/>
+</g><g stroke="#C2410C" stroke-width="1" fill="none"><path d="M20 120 L120 165" stroke-dasharray="0"/><path d="M20 114 L20 126 M120 159 L120 171"/></g>
+<text x="52" y="152" font-family="IBM Plex Mono" font-size="10" fill="#C2410C" transform="rotate(24 52 152)">3.250</text></svg>
+        <span class="label">Drop a file or click to choose</span>
+        <span class="fname" id="fname">BRACKET-A07<span class="ext">.STEP</span></span>
+        <span class="hint" id="hint">Your file name becomes the headline, because your part is the subject. Nothing is uploaded from this page.</span>
+        <input type="file" id="file" hidden>
+      </label>
+      <div class="checks" aria-live="polite">
+        <div><span class="k">Format</span><span id="c-fmt">STEP / STP</span><span class="st" id="s-fmt">OK</span></div>
+        <div><span class="k">Process</span><span>CNC milling</span><span class="st">REVIEW</span></div>
+        <div><span class="k">Material</span><span>6061-T6 aluminum</span><span class="st">REVIEW</span></div>
+        <div><span class="k">Drawing</span><span id="c-pdf">Optional PDF</span><span class="st">—</span></div>
+      </div>
+    </div>
+  </div>
+
+  <section id="process" aria-labelledby="h-process">
+    <div class="sec-head"><span class="label">Sheet 2 · Process</span><h2 id="h-process">Five operations. No guesswork.</h2></div>
+    <table class="proc">
+      <thead><tr><th>Op</th><th>Operation</th><th>What happens</th><th>Output</th></tr></thead>
+      <tbody>
+        <tr><td class="op">010</td><td class="name">Upload</td><td>Add a STEP/STP file, plus an optional PDF drawing. Matching file names keep the pair together.</td><td class="out">PART PACKAGE</td></tr>
+        <tr><td class="op">020</td><td class="name">Review</td><td>Material, finish, tolerance, quantity and revision are extracted and shown for you to confirm or correct before anything is sent.</td><td class="out">APPROVED REQUIREMENTS</td></tr>
+        <tr><td class="op">030</td><td class="name">Request</td><td>You trigger collection. Only providers certified for this exact package are asked. Automation fails closed — nothing progresses silently.</td><td class="out">QUOTE REQUEST</td></tr>
+        <tr><td class="op">040</td><td class="name">Compare</td><td>Every purchasable variant lands on one field: working-day lead on X, quoted total on Y. Origin stays labeled — US, global or Unknown.</td><td class="out">LIVE OFFERS · OR LABELED GUIDANCE</td></tr>
+        <tr><td class="op">050</td><td class="name">Hand off</td><td>Pick an offer and continue with that vendor on their own site. Your selection stays on record with the part.</td><td class="out">VENDOR HANDOFF</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="compare" aria-labelledby="h-compare">
+    <div class="sec-head"><span class="label">Sheet 3 · Compare</span><div><h2 id="h-compare">One field. The tradeoff is obvious.</h2><p class="sec-sub">Lower-left is faster and cheaper. Select a point or a row — they are one selection.</p></div></div>
+    <div class="compare">
+      <div class="chart">
+        <div class="cap"><span class="label">BRACKET-A07 · 6061-T6 · 25 pcs</span><span class="ph">Illustrative sample · not live quotes · vendors anonymized</span></div>
+        <svg id="plot" viewBox="0 0 640 340" role="img" aria-label="Illustrative scatter of six sample offers: quoted total versus working-day lead time"></svg>
+      </div>
+      <div class="vtable">
+        <table><thead><tr><th>Vendor</th><th class="r">Total</th><th class="r">Lead</th><th class="hide-s">Origin</th></tr></thead><tbody id="rows"></tbody></table>
+        <div class="selbox"><div><span class="label">Selected total</span><div class="big" id="s-total">—</div></div><div><span class="label">Lead</span><div class="big" id="s-lead">—</div></div></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="envelope" aria-labelledby="h-env">
+    <div class="sec-head"><span class="label">Sheet 4 · Envelope</span><div><h2 id="h-env">A narrow envelope, on purpose.</h2><p class="sec-sub">1.0 quotes one kind of part very well before it claims anything else. Out-of-envelope uploads get a clear explanation and a next step — not a made-up number.</p></div></div>
+    <div class="spec">
+      <div><span class="label">Process</span><span class="v">CNC milling</span></div>
+      <div><span class="label">Material</span><span class="v">Aluminum 6061-T6</span></div>
+      <div><span class="label">Files</span><span class="v">STEP / STP<br><span style="color:var(--muted);font-weight:400">+ optional PDF</span></span></div>
+      <div><span class="label">Export control</span><span class="v">Non-ITAR only</span></div>
+    </div>
+    <p class="notyet">NOT IN 1.0 — ordering or checkout · ITAR parts · PDF-only packages · DFM analysis · CAD plug-ins</p>
+  </section>
+
+  <section id="providers" aria-labelledby="h-prov">
+    <div class="sec-head"><span class="label">Sheet 5 · Providers</span><div><h2 id="h-prov">Seven providers. Each one earns its route.</h2><p class="sec-sub">The 1.0 portfolio. Every automatic route is admitted and production-certified on its own; an account with a provider is not a live quote. Names shown as text — no partnership or endorsement implied.</p></div></div>
+    <div class="prov">
+      <div>Xometry<small>CNC</small></div><div>Fictiv<small>CNC</small></div><div>Quickparts<small>CNC</small></div><div>Weerg<small>CNC</small></div><div>Geomiq<small>CNC</small></div><div>RMFG<small>OWN PROCESS ROUTE</small></div><div>OSH Cut<small>OWN PROCESS ROUTE</small></div>
+    </div>
+  </section>
+
+  <section id="beta" class="cta-band" aria-labelledby="h-beta">
+    <div><span class="label">Founding Beta</span><h2 id="h-beta" style="margin-top:12px">Get your next part quoted.</h2><p class="sec-sub" style="margin-left:0;grid-column:auto">Invitation-only and free. Built for hands-on buyers: tinkerers, students, freelance engineers, small shops.</p></div>
+    <div class="hero-ctas"><a class="btn primary" href="#beta">Request Founding Beta access →</a><a class="btn" href="#signin">Sign in</a></div>
+  </section>
+  </main>
+
+  <footer class="tb" aria-label="Title block">
+    <div><span class="label">Title</span><span class="wm">OverDrafter</span></div>
+    <div><span class="label">Drawing no.</span><span class="v">OD-HOME</span></div>
+    <div><span class="label">Rev</span><span class="v">1.0 BETA</span></div>
+    <div><span class="label">Sheet</span><span class="v">1 OF 1</span></div>
+    <div><span class="label">Legal</span><span class="v"><a href="https://overdrafter.com/legal/beta-terms">Beta terms</a> · <a href="https://overdrafter.com/legal/privacy">Privacy</a></span></div>
+  </footer>
+  <div class="zones bottom" aria-hidden="true"><span>8</span><span>7</span><span>6</span><span>5</span><span>4</span><span>3</span><span>2</span><span>1</span></div>
+</div>
+
+<script>
+// Illustrative sample data — not live quotes. Vendor names withheld deliberately.
+const D=[["Vendor A",445,16,"US"],["Vendor B",487,12,"Global"],["Vendor C",525,9,"US"],["Vendor D",558,11,"Unknown"],["Vendor E",610,7,"US"],["Vendor F",690,5,"Global"]];
+let sel=2;const svg=document.getElementById('plot'),rows=document.getElementById('rows');
+let W=640,H=340;
+const X=d=>56+(d/20)*(W-76),Y=p=>(H-40)-(p/800)*(H-70),NS='http://www.w3.org/2000/svg';
+function el(t,a,txt){const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);if(txt!=null)e.textContent=txt;svg.appendChild(e);return e}
+const T={'font-family':'IBM Plex Mono','font-size':11,fill:'#6B665C'};
+function draw(){W=Math.max(300,svg.parentNode.clientWidth-(innerWidth<860?32:96));H=Math.round(W<520?W*.82:W*.53);svg.setAttribute('viewBox',`0 0 ${W} ${H}`);svg.innerHTML='';
+ for(let d=0;d<=20;d+=5){el('line',{x1:X(d),x2:X(d),y1:30,y2:H-40,stroke:'#D8D2C4'});el('text',{...T,x:X(d),y:H-22,'text-anchor':'middle'},d+'d')}
+ for(let p=0;p<=800;p+=200){el('line',{x1:56,x2:W-20,y1:Y(p),y2:Y(p),stroke:'#D8D2C4'});el('text',{...T,x:48,y:Y(p)+4,'text-anchor':'end'},'$'+p)}
+ el('text',{...T,x:W-20,y:H-4,'text-anchor':'end','font-size':10,'letter-spacing':'1'},'LEAD · WORKING DAYS →');
+ el('text',{...T,x:56,y:16,'font-size':10,'letter-spacing':'1'},'↑ QUOTED TOTAL');
+ D.forEach((v,i)=>{const c=el('circle',{cx:X(v[2]),cy:Y(v[1]),r:i===sel?8:6,fill:i===sel?'#C2410C':'#6B665C',class:'dot',tabindex:0,role:'button','aria-label':v[0]+' $'+v[1]+' '+v[2]+' days'});c.onclick=()=>pick(i);c.onkeydown=e=>{if(e.key==='Enter'||e.key===' ')pick(i)}});
+ const v=D[sel];el('text',{x:X(v[2]),y:Y(v[1])+26,'text-anchor':'middle','font-family':'IBM Plex Mono','font-size':12,fill:'#C2410C','font-weight':600},v[0].toUpperCase());
+ rows.innerHTML=D.map((v,i)=>`<tr class="${i===sel?'sel':''}" data-i="${i}" tabindex="0"><td>${v[0]}</td><td class="r">$${v[1].toFixed(2)}</td><td class="r">${v[2]}d</td><td class="hide-s">${v[3]}</td></tr>`).join('');
+ rows.querySelectorAll('tr').forEach(r=>{r.onclick=()=>pick(+r.dataset.i);r.onkeydown=e=>{if(e.key==='Enter')pick(+r.dataset.i)}});
+ document.getElementById('s-total').textContent='$'+D[sel][1].toFixed(2);document.getElementById('s-lead').textContent=D[sel][2]+' work days'}
+addEventListener('resize',()=>draw());
+function pick(i){sel=i;draw()}draw();
+
+// Local-only envelope check
+const drop=document.getElementById('drop'),file=document.getElementById('file');
+function show(f){const m=f.name.match(/^(.*?)(\.[^.]+)?$/);const base=m[1],ext=(m[2]||'').toUpperCase();
+ document.getElementById('fname').innerHTML=base.replace(/[<>&]/g,'')+'<span class="ext">'+ext.replace(/[<>&]/g,'')+'</span>';
+ const ok=/\.(STEP|STP)$/.test(ext),pdf=ext==='.PDF',s=document.getElementById('s-fmt');
+ document.getElementById('c-fmt').textContent=ok?'STEP / STP · '+(f.size/1048576).toFixed(1)+' MB':pdf?'PDF only — needs a STEP/STP':ext+' — outside 1.0 envelope';
+ s.textContent=ok?'OK':'HOLD';s.className='st'+(ok?'':' flag');
+ document.getElementById('hint').textContent=ok?'Inside the 1.0 format envelope. In the product, requirements are reviewed next.':'Outside the 1.0 envelope. The product explains why and suggests a next step.'}
+file.onchange=()=>file.files[0]&&show(file.files[0]);
+drop.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();file.click()}};
+['dragenter','dragover'].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault();drop.classList.add('over')}));
+['dragleave','drop'].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault();drop.classList.remove('over')}));
+drop.addEventListener('drop',e=>e.dataTransfer.files[0]&&show(e.dataTransfer.files[0]));
+</script>
+</body>
+</html>
